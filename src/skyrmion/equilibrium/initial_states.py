@@ -94,7 +94,7 @@ def triple_q_initial_guess(
                 amplitude / 2
                 * (
                     z_hat
-                    - 1j * transverse
+                    + 1j * transverse
                 )
             )
 
