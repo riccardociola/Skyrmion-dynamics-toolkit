@@ -120,3 +120,116 @@ def triple_q_initial_guess(
             index += 6
 
     return x
+
+
+def mathematica_skl_benchmark(basis):
+    """
+    Return a converged SkL configuration obtained from the Mathematica code.
+
+    The Mathematica solution uses the restricted representation
+
+        M(G) = (i*mu1, i*mu2, mu3).
+
+    It is converted here to the general complex Fourier representation
+    used by FourierBasis.
+    """
+
+    if basis.cutoff != 2:
+        raise ValueError(
+            "This benchmark was calculated with cutoff=2."
+        )
+
+    mu = {
+        (-1, 1): (
+            0.02891578169614092,
+            0.02861567803910334,
+            -0.03407175246218761,
+        ),
+
+        (0, 1): (
+            -0.31019634996553976,
+            -0.1550981749827669,
+            0.26461130640141883,
+        ),
+
+        (0, 2): (
+            0.005522794656405055,
+            0.002761397328202453,
+            -0.004297031869920622,
+        ),
+
+        (1, 1): (
+            0.12602969098995563,
+            -0.13661202177123362,
+            -0.2159514674472051,
+        ),
+
+        (1, 2): (
+            -0.028915781696137336,
+            -0.0003001036570370284,
+            0.03407175246218368,
+        ),
+
+        (2, 1): (
+            0.0,
+            -0.029823163992381357,
+            -0.014605161742247315,
+        ),
+
+        (2, 2): (
+            -0.01484053697016938,
+            -0.0006133159675531446,
+            0.01716173582622511,
+        ),
+
+        (1, 0): (
+            0.12602969098995449,
+            0.26264171276119223,
+            0.21595146744720902,
+        ),
+
+        (2, 0): (
+            0.014840536970169372,
+            0.014227221002616081,
+            0.017161735826225036,
+        ),
+    }
+
+    mu0 = 0.4401195787361723
+
+    x = np.zeros(basis.n_parameters)
+
+    index = 0
+
+    for n1, n2 in basis.independent_indices:
+
+        node = (int(n1), int(n2))
+
+        if node == (0, 0):
+
+            # M(0) = (0, 0, mu3)
+            x[index:index + 3] = [
+                0.0,
+                0.0,
+                mu0,
+            ]
+
+            index += 3
+
+        else:
+
+            mu1, mu2, mu3 = mu[node]
+
+            # General complex representation:
+            #
+            # M = (i*mu1, i*mu2, mu3)
+            #
+            x[index:index + 6] = [
+                0.0, mu1,
+                0.0, mu2,
+                mu3, 0.0,
+            ]
+
+            index += 6
+
+    return x

@@ -4,7 +4,7 @@ from scipy.optimize import minimize
 
 from skyrmion.geometry.affine import AffineGeometry
 from skyrmion.basis.fourier import FourierBasis
-from skyrmion.equilibrium.initial_states import triple_q_initial_guess
+from skyrmion.equilibrium.initial_states import mathematica_skl_benchmark, triple_q_initial_guess
 
 from skyrmion.energy.magnetic import (
     exchange_energy,
@@ -15,29 +15,24 @@ from skyrmion.energy.magnetic import (
 
 from skyrmion.energy.constraint import quartic_constraint_energy
 
-basis = FourierBasis(cutoff=1)
+basis = FourierBasis(cutoff=2)
 
 geometry = AffineGeometry(
-    eta=1.0,
-    phi=0.0,
+    eta=1.005325067270176,
+    phi=0.003055453941628,
     alpha=0.0,
 )
 
-x0 = triple_q_initial_guess(
-    basis=basis,
-    geometry=geometry,
-    m0=0.5,
-    amplitude=0.3,
-)
+x0 = mathematica_skl_benchmark(basis)
 
 M0 = basis.unpack(x0)
 
 
 # Model parameters
-a = 2 * np.pi
+a = 7.535292857570247
 b = 0.5
-xi = 0.65
-lam = 100.0
+xi = 0.4
+lam = 500.0
 
 N = np.diag([1 / 3, 1 / 3, 1 / 3])  # Demagnetization tensor for a spherical sample
 
