@@ -1,0 +1,9 @@
+Get["../wolfram/Geometry.wl"];
+
+Vpuc[1, 0, 0]
+(* expected: Sqrt[3]/2 *)
+
+FullSimplify[
+    ee[η, φ, αR] . Transpose[EE[η, φ, αR]]
+]
+(* expected: IdentityMatrix[3] *)
