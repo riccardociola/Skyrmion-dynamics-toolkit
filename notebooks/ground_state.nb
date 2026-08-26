@@ -50,3 +50,43 @@ U[0, 0]//MatrixForm
 independentNodes[2]
 
 Length[MagneticVariables[2, "General"]]
+
+Print[ OutputForm["-> Test the magnetic energy functions for the hexagonal SkL"] ];
+
+Get[
+    FileNameJoin[
+        {NotebookDirectory[], "..", "wolfram", "EnergyMagnetic.wl"}
+    ]
+];
+
+ConfigureFourierBasis[1, "SixFold"];
+
+Print[ OutputForm["Exchange energy :"] ];
+ExchangeEnergy[a, eta, phi, alphaR]
+Print[ OutputForm["Bloch DMI energy :"] ];
+BlochDMIEnergy[a, eta, phi, alphaR]
+Print[ OutputForm["Zeeman energy :"] ];
+ZeemanEnergy[b]
+
+NijC = DiagonalMatrix[{1 / 3, 1 / 3, 1 / 3}];
+Nij =
+    ee[eta, phi, alphaR] .
+    NijC .
+    Transpose[ee[eta, phi, alphaR]];
+
+Print[ OutputForm["Dipolar energy :"] ];
+MagnetostaticInfiniteEnergy[
+    xi,
+    Nij,
+    eta,
+    phi,
+    alphaR
+]
+
+Print[ OutputForm["Constraint energy :"] ];
+ConstraintEnergy[
+    lambda,
+    eta,
+    phi,
+    alphaR
+]
