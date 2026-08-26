@@ -1,22 +1,32 @@
 (* ================================================================ *)
-(* Geometry.wl                                                       *)
+(* Geometry.wl                                                      *)
 (*                                                                  *)
 (* Affine-coordinate tools for skyrmion-lattice calculations.       *)
-(* The basis vectors are treated as rows of the affine basis matrix. *)
+(*                                                                  *)
+(*                                                                  *)
+(* Notebook / mathematical notation       Source code           *)
+(* ─────────────────────────────────────────────────────        *)
+(* η                                      eta                   *)
+(* φ                                      phi                   *)
+(* αR                                     alphaR                *)
+(* gαβ                                    metric                *)
+(* Gαβ                                    dualMetric            *)
+(* ξ1                                     xi1                   *)
+(* μ1                                     mu1                   *)
+(* λ                                      lambda                *)
 (* ================================================================ *)
 
-
 ClearAll[
-    rotα,
+    rotAlpha,
     ee,
     e1, e2, e3,
-    gαβ,
-    g,
+    metric,
+    metricDet,
     Vpuc,
-    Gαβ,
+    dualMetric,
     EE,
     E1, E2, E3,
-    ξ1, ξ2,
+    xi1, xi2,
     X, Y,
     x0, y0,
     DotC,
@@ -36,9 +46,9 @@ ClearAll[
 (* --------------------------------------------------------------- *)
 
 $Assumptions =
-    η > 0 &&
-    -Pi <= φ < Pi &&
-    0 <= αR <= 2 Pi;
+    eta > 0 &&
+    -Pi <= phi < Pi &&
+    0 <= alphaR <= 2 Pi;
 
 
 (* --------------------------------------------------------------- *)
@@ -46,23 +56,23 @@ $Assumptions =
 (* --------------------------------------------------------------- *)
 
 (* Rotation around the Cartesian z axis. *)
-rotα[αR_] := {
-    {Cos[αR], -Sin[αR], 0},
-    {Sin[αR],  Cos[αR], 0},
-    {0,        0,       1}
+rotAlpha[alphaR_] := {
+    {Cos[alphaR], -Sin[alphaR], 0},
+    {Sin[alphaR],  Cos[alphaR], 0},
+    {0, 0, 1}
 };
 
 
 (* Affine basis vectors {e1,e2,e3}, stored as rows. *)
-ee[η_, φ_, αR_] := {
+ee[eta_, phi_, alphaR_] := {
     {
-        Cos[Pi/6 + φ/2],
-        -Sin[Pi/6 + φ/2],
+        Cos[Pi/6 + phi/2],
+        -Sin[Pi/6 + phi/2],
         0
     },
     {
-        η Cos[Pi/6 + φ/2],
-        η Sin[Pi/6 + φ/2],
+        eta Cos[Pi/6 + phi/2],
+        eta Sin[Pi/6 + phi/2],
         0
     },
     {
@@ -70,12 +80,12 @@ ee[η_, φ_, αR_] := {
         0,
         1
     }
-} . rotα[αR];
+} . rotAlpha[alphaR];
 
 
 (* Individual affine basis vectors. *)
-e1[η_, φ_, αR_] := ee[η, φ, αR][[1]];
-e2[η_, φ_, αR_] := ee[η, φ, αR][[2]];
+e1[eta_, phi_, alphaR_] := ee[eta, phi, alphaR][[1]];
+e2[eta_, phi_, alphaR_] := ee[eta, phi, alphaR][[2]];
 e3 := {0, 0, 1};
 
 
@@ -84,42 +94,42 @@ e3 := {0, 0, 1};
 (* --------------------------------------------------------------- *)
 
 (* Metric tensor g_ab = e_a . e_b. *)
-gαβ[η_, φ_, αR_] :=
+metric[eta_, phi_, alphaR_] :=
     Outer[
         Dot,
-        ee[η, φ, αR],
-        ee[η, φ, αR],
+        ee[eta, phi, alphaR],
+        ee[eta, phi, alphaR],
         1
     ] // FullSimplify;
 
 
 (* Determinant of the metric tensor. *)
-g[η_, φ_, αR_] :=
-    Det[gαβ[η, φ, αR]] // FullSimplify;
+metricDet[eta_, phi_, alphaR_] :=
+    Det[metric[eta, phi, alphaR]] // FullSimplify;
 
 
 (* Primitive unit-cell volume (area for the 2D magnetic lattice). *)
-Vpuc[η_, φ_, αR_] :=
-    Sqrt[g[η, φ, αR]] // FullSimplify;
+Vpuc[eta_, phi_, alphaR_] :=
+    Sqrt[metricDet[eta, phi, alphaR]] // FullSimplify;
 
 
 (* Dual metric tensor g^ab. *)
-Gαβ[η_, φ_, αR_] :=
-    Inverse[gαβ[η, φ, αR]];
+dualMetric[eta_, phi_, alphaR_] :=
+    Inverse[metric[eta, phi, alphaR]];
 
 
 (* Dual basis vectors, stored as rows. *)
-EE[η_, φ_, αR_] :=
+EE[eta_, phi_, alphaR_] :=
     Transpose[
         Inverse[
-            ee[η, φ, αR]
+            ee[eta, phi, alphaR]
         ]
     ];
 
 
 (* Individual dual basis vectors. *)
-E1[η_, φ_, αR_] := EE[η, φ, αR][[1]];
-E2[η_, φ_, αR_] := EE[η, φ, αR][[2]];
+E1[eta_, phi_, alphaR_] := EE[eta, phi, alphaR][[1]];
+E2[eta_, phi_, alphaR_] := EE[eta, phi, alphaR][[2]];
 E3 := {0, 0, 1};
 
 
@@ -127,39 +137,39 @@ E3 := {0, 0, 1};
 (* Coordinate transformations                                     *)
 (* --------------------------------------------------------------- *)
 
-(* Affine coordinates ξ1, ξ2 corresponding to Cartesian (x,y). *)
-ξ1[x_, y_, η_, φ_, αR_] :=
-    {x, y, 0} . E1[η, φ, αR];
+(* Affine coordinates (xi1, xi2) corresponding to Cartesian (x,y). *)
+xi1[x_, y_, eta_, phi_, alphaR_] :=
+    {x, y, 0} . E1[eta, phi, alphaR];
 
-ξ2[x_, y_, η_, φ_, αR_] :=
-    {x, y, 0} . E2[η, φ, αR];
+xi2[x_, y_, eta_, phi_, alphaR_] :=
+    {x, y, 0} . E2[eta, phi, alphaR];
 
 
-(* Cartesian x coordinate from affine coordinates (ξ1,ξ2). *)
-X[ξ1_, ξ2_, η_, φ_, αR_] :=
+(* Cartesian x coordinate from affine coordinates (xi1, xi2). *)
+X[xi1_, xi2_, eta_, phi_, alphaR_] :=
     (
-        ξ1 e1[η, φ, αR] +
-        ξ2 e2[η, φ, αR]
+        xi1 e1[eta, phi, alphaR] +
+        xi2 e2[eta, phi, alphaR]
     )[[1]];
 
 
-(* Cartesian y coordinate from affine coordinates (ξ1,ξ2). *)
-Y[ξ1_, ξ2_, η_, φ_, αR_] :=
+(* Cartesian y coordinate from affine coordinates (xi1, xi2). *)
+Y[xi1_, xi2_, eta_, phi_, alphaR_] :=
     (
-        ξ1 e1[η, φ, αR] +
-        ξ2 e2[η, φ, αR]
+        xi1 e1[eta, phi, alphaR] +
+        xi2 e2[eta, phi, alphaR]
     )[[2]];
 
 
 (* Center of the parallelogram primitive unit cell. *)
-x0[η_, φ_, αR_] :=
+x0[eta_, phi_, alphaR_] :=
     (
-        (e1[η, φ, αR] + e2[η, φ, αR])/2
+        (e1[eta, phi, alphaR] + e2[eta, phi, alphaR])/2
     )[[1]];
 
-y0[η_, φ_, αR_] :=
+y0[eta_, phi_, alphaR_] :=
     (
-        (e1[η, φ, αR] + e2[η, φ, αR])/2
+        (e1[eta, phi, alphaR] + e2[eta, phi, alphaR])/2
     )[[2]];
 
 
@@ -168,19 +178,13 @@ y0[η_, φ_, αR_] :=
 (* --------------------------------------------------------------- *)
 
 (* Scalar product of two vectors given in covariant components. *)
-DotC[v1_List, v2_List, η_, φ_, αR_] :=
-    TensorContract[
-        Gαβ[η, φ, αR] \[TensorProduct] v1 \[TensorProduct] v2,
-        {{1, 3}, {2, 4}}
-    ];
+DotC[v1_List, v2_List, eta_, phi_, alphaR_] :=
+    v1 . dualMetric[eta, phi, alphaR] . v2;
 
 
 (* Scalar product of two vectors given in contravariant components. *)
-DotCn[v1_List, v2_List, η_, φ_, αR_] :=
-    TensorContract[
-        gαβ[η, φ, αR] \[TensorProduct] v1 \[TensorProduct] v2,
-        {{1, 3}, {2, 4}}
-    ];
+DotCn[v1_List, v2_List, eta_, phi_, alphaR_] :=
+    v1 . metric[eta, phi, alphaR] . v2;
 
 
 (* --------------------------------------------------------------- *)
@@ -193,11 +197,8 @@ G[n1_, n2_] :=
 
 
 (* Contravariant affine components of reciprocal vector G(n1,n2). *)
-Gc[n1_Integer, n2_Integer, η_, φ_, αR_] :=
-    TensorContract[
-        Gαβ[η, φ, αR] \[TensorProduct] G[n1, n2],
-        {{2, 3}}
-    ];
+Gc[n1_Integer, n2_Integer, eta_, phi_, alphaR_] :=
+    dualMetric[eta, phi, alphaR] . G[n1, n2];
 
 
 (* --------------------------------------------------------------- *)
@@ -207,11 +208,11 @@ Gc[n1_Integer, n2_Integer, η_, φ_, αR_] :=
 (* Fourier transform over one primitive affine unit cell. *)
 FT[f_, {n1_, n2_}] :=
     NIntegrate[
-        f[ξ1, ξ2] Exp[
-            -I G[n1, n2] . {ξ1, ξ2, 0}
+        f[xi1, xi2] Exp[
+            -I G[n1, n2] . {xi1, xi2, 0}
         ],
-        {ξ1, 0, 1},
-        {ξ2, 0, 1}
+        {xi1, 0, 1},
+        {xi2, 0, 1}
     ];
 
 
@@ -220,28 +221,28 @@ FT[f_, {n1_, n2_}] :=
 (* --------------------------------------------------------------- *)
 
 (* Contravariant affine components -> Cartesian components. *)
-toCRTc[vc_List, η_, φ_, αR_] :=
+toCRTc[vc_List, eta_, phi_, alphaR_] :=
     Inner[
         Times,
         vc,
-        ee[η, φ, αR]
+        ee[eta, phi, alphaR]
     ];
 
 
 (* Covariant affine components -> Cartesian components. *)
-toCRT[v_List, η_, φ_, αR_] :=
+toCRT[v_List, eta_, phi_, alphaR_] :=
     Inner[
         Times,
         v,
-        EE[η, φ, αR]
+        EE[eta, phi, alphaR]
     ];
 
 
 (* Cartesian components -> covariant affine components. *)
-toAff[v_List, η_, φ_, αR_] :=
-    (# . v) & /@ ee[η, φ, αR];
+toAff[v_List, eta_, phi_, alphaR_] :=
+    (# . v) & /@ ee[eta, phi, alphaR];
 
 
 (* Cartesian components -> contravariant affine components. *)
-toAffc[v_List, η_, φ_, αR_] :=
-    (# . v) & /@ EE[η, φ, αR];
+toAffc[v_List, eta_, phi_, alphaR_] :=
+    (# . v) & /@ EE[eta, phi, alphaR];

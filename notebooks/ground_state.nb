@@ -1,9 +1,14 @@
-Get["../wolfram/Geometry.wl"];
+In[15]:=
+Get[
+    FileNameJoin[
+        {NotebookDirectory[], "..", "wolfram", "Geometry.wl"}
+    ]
+];
 
 Vpuc[1, 0, 0]
 (* expected: Sqrt[3]/2 *)
 
 FullSimplify[
-    ee[η, φ, αR] . Transpose[EE[η, φ, αR]]
+    ee[\[Eta], \[CurlyPhi], \[Alpha]R] . Transpose[EE[\[Eta], \[CurlyPhi], \[Alpha]R]]
 ]
 (* expected: IdentityMatrix[3] *)
