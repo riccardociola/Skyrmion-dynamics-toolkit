@@ -1,4 +1,5 @@
-In[15]:=
+Print[ OutputForm["Import and test Geomtry.wl"] ];
+
 Get[
     FileNameJoin[
         {NotebookDirectory[], "..", "wolfram", "Geometry.wl"}
@@ -12,3 +13,40 @@ FullSimplify[
     ee[\[Eta], \[CurlyPhi], \[Alpha]R] . Transpose[EE[\[Eta], \[CurlyPhi], \[Alpha]R]]
 ]
 (* expected: IdentityMatrix[3] *)
+
+Print[ OutputForm["Import and test FourierBasis.wl"] ];
+
+Get[
+    FileNameJoin[
+        {NotebookDirectory[], "..", "wolfram", "FourierBasis.wl"}
+    ]
+];
+
+Print[ OutputForm["-> Configure a 6-fold magnetic lattice"] ];
+
+ConfigureFourierBasis[2, "SixFold"];
+(* corresponding to NN=2 and a reduced six-fold symmetric example *)
+
+M[1, 0]//MatrixForm
+M[-1, 0]//MatrixForm
+M[0, 0]//MatrixForm
+
+independentNodes[2]
+
+Length[MagneticVariables[2, "SixFold"]]
+
+Print[ OutputForm["-> Configure a general magnetic and lattice"] ];
+
+ConfigureFourierBasis[2, "General"];
+(* corresponding to NN=2 and a reduced six-fold symmetric example *)
+
+M[1, 0]//MatrixForm
+M[-1, 0]//MatrixForm
+M[0, 0]//MatrixForm
+U[1, 0]//MatrixForm
+U[-1, 0]//MatrixForm
+U[0, 0]//MatrixForm
+
+independentNodes[2]
+
+Length[MagneticVariables[2, "General"]]
