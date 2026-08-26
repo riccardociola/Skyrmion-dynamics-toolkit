@@ -12,7 +12,6 @@ ClearAll[
     independentNodeQ,
     independentNodes,
 
-    mu1, mu2, mu3,
     muR, muI,
     uR, uI,
 
@@ -75,15 +74,15 @@ independentNodes[cutoff_Integer] :=
 (*
     High-symmetry magnetic Fourier field:
 
-        M_G = {i mu1_G, i mu2_G, mu3_G}
+        M_G = {i muI1_G, i muI2_G, muR3_G}
 
     Reality condition M_-G = Conjugate[M_G] implies
 
-        mu1_-G = -mu1_G
-        mu2_-G = -mu2_G
-        mu3_-G =  mu3_G
+        muI1_-G = -muI1_G
+        muI2_-G = -muI2_G
+        muR3_-G =  muR3_G
 
-    At G = 0 only mu3 is allowed.
+    At G = 0 only muR3 is allowed.
 *)
 
 MSixFold[n1_Integer, n2_Integer, cutoff_Integer] :=
@@ -98,23 +97,23 @@ MSixFold[n1_Integer, n2_Integer, cutoff_Integer] :=
         {
             0,
             0,
-            mu3[0, 0]
+            muR[3, 0, 0]
         },
 
         (* Independent half of reciprocal space. *)
         independentNodeQ[n1, n2],
         {
-            I mu1[n1, n2],
-            I mu2[n1, n2],
-            mu3[n1, n2]
+            I muI[1, n1, n2],
+            I muI[2, n1, n2],
+            muR[3, n1, n2]
         },
 
         (* Dependent half obtained from the reality condition. *)
         True,
         {
-            -I mu1[-n1, -n2],
-            -I mu2[-n1, -n2],
-            mu3[-n1, -n2]
+            -I muI[1, -n1, -n2],
+            -I muI[2, -n1, -n2],
+            muR[3, -n1, -n2]
         }
     ];
 
@@ -221,13 +220,13 @@ MagneticVariables[cutoff_Integer, "SixFold"] :=
                     node == {0, 0},
 
                     {
-                        mu3[0, 0]
+                        muR[3, 0, 0]
                     },
 
                     {
-                        mu1[node[[1]], node[[2]]],
-                        mu2[node[[1]], node[[2]]],
-                        mu3[node[[1]], node[[2]]]
+                        muI[1, node[[1]], node[[2]]],
+                        muI[2, node[[1]], node[[2]]],
+                        muR[3, node[[1]], node[[2]]]
                     }
                 ]
             ],
