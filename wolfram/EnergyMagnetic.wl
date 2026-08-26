@@ -128,53 +128,63 @@ ZeemanEnergy[b_] :=
     xi:
         dimensionless magnetostatic coupling.
 
-    Nij:
-        demagnetization tensor in covariant components.
-        Nij = 0 corresponds to a boundless sample.
+    NijCartesian:
+        demagnetization tensor in Cartesian components.
+        A zero tensor corresponds to a boundless sample.
 *)
 MagnetostaticInfiniteEnergy[
     xi_,
-    Nij_List,
+    NijCartesian_List,
     eta_,
     phi_,
     alphaR_
 ] :=
-    xi Sum[
+    Module[
+        {NijCovariant},
 
-        If[
-            n1 == 0 && n2 == 0,
+        (* Convert Cartesian demagnetization tensor to covariant affine components. *)
+        NijCovariant =
+            ee[eta, phi, alphaR] .
+            NijCartesian .
+            Transpose[ee[eta, phi, alphaR]];
 
-            TensorContract[
-                TensorProduct[
-                    Nij,
-                    dualMetric[eta, phi, alphaR],
-                    dualMetric[eta, phi, alphaR],
-                    M[0, 0],
-                    M[0, 0]
+        xi Sum[
+
+            If[
+                n1 == 0 && n2 == 0,
+
+                TensorContract[
+                    TensorProduct[
+                        NijCovariant,
+                        dualMetric[eta, phi, alphaR],
+                        dualMetric[eta, phi, alphaR],
+                        M[0, 0],
+                        M[0, 0]
+                    ],
+                    {{1, 3}, {2, 5}, {4, 7}, {6, 8}}
                 ],
-                {{1, 3}, {2, 5}, {4, 7}, {6, 8}}
+
+                DotC[
+                    M[n1, n2],
+                    G[n1, n2],
+                    eta, phi, alphaR
+                ]
+                DotC[
+                    M[-n1, -n2],
+                    G[n1, n2],
+                    eta, phi, alphaR
+                ]
+                /
+                DotC[
+                    G[n1, n2],
+                    G[n1, n2],
+                    eta, phi, alphaR
+                ]
             ],
 
-            DotC[
-                M[n1, n2],
-                G[n1, n2],
-                eta, phi, alphaR
-            ]
-            DotC[
-                M[-n1, -n2],
-                G[n1, n2],
-                eta, phi, alphaR
-            ]
-            /
-            DotC[
-                G[n1, n2],
-                G[n1, n2],
-                eta, phi, alphaR
-            ]
-        ],
-
-        {n1, -$FourierCutoff, $FourierCutoff},
-        {n2, -$FourierCutoff, $FourierCutoff}
+            {n1, -$FourierCutoff, $FourierCutoff},
+            {n2, -$FourierCutoff, $FourierCutoff}
+        ]
     ];
 
 
