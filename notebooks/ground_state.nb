@@ -191,3 +191,28 @@ result =
 Print[ OutputForm["Minimisation finished!! The energy is :"] ];
 
 result[[1]]
+
+Print[ OutputForm["-> Now  let's plot the solution with Plotting.wl"] ];
+
+Get[
+    FileNameJoin[
+        {NotebookDirectory[], "..", "wolfram", "Plotting.wl"}
+    ]
+];
+
+gsRules =
+    Join[
+        result[[2]],
+        parameterRules
+    ];
+
+SkyrmionConfigurationPlot[
+    gsRules
+]
+
+SkyrmionConfigurationPlot[
+     gsRules,
+    ShowFrameAndLabels -> False,
+    ImageSize -> 300,
+    Range -> 3
+ ]
