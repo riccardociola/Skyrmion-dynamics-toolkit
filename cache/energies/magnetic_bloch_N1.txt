@@ -1,4 +1,4 @@
--(b*muR[3, 0, 0]) + xi*(muR[3, 0, 0]^2/3 + 
+-(b*muR[3, 0, 0]) + xi*(Nz*muR[3, 0, 0]^2 + 
    2*(eta0^2 - (eta0^2*(Cos[phi0] - Sqrt[3]*Sin[phi0])^2)/4)*
     (((-I)*muI[2, 0, 1])/(eta0^2 - (eta0^2*(Cos[phi0] - Sqrt[3]*Sin[phi0])^2)/
         4) - (I*muI[1, 0, 1]*(-1/2*(eta0*Cos[phi0]) + 

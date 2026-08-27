@@ -132,6 +132,11 @@ BuildMagneticEnergy[
                 Return[$Failed]
             ];
 
+        (* Symbolic Cartesian demagnetization tensor. *)
+        NijCartesian =
+            DiagonalMatrix[
+                {Nx, Ny, Nz}
+            ];
 
         energy =
             ExchangeEnergy[
@@ -147,7 +152,7 @@ BuildMagneticEnergy[
             +
             MagnetostaticInfiniteEnergy[
                 xi,
-                Nij,
+                NijCartesian,
                 eta0,
                 phi0,
                 alphaR0
@@ -158,6 +163,29 @@ BuildMagneticEnergy[
                 eta0,
                 phi0,
                 alphaR0
+            ];
+
+        Print["Simplifying symbolic energy..."];
+
+        energy =
+            TimeConstrained[
+                Simplify[
+                    energy,
+                    Assumptions -> {
+                        a0 > 0,
+                        eta0 > 0,
+                        -Pi <= phi0 < Pi,
+                        0 <= alphaR0 <= 2 Pi,
+                        xi >= 0,
+                        lambda > 0,
+                        0 <= Nx <= 1,
+                        0 <= Ny <= 1,
+                        0 <= Nz <= 1,
+                        Nx + Ny + Nz == 1
+                    }
+                ],
+                300,
+                energy
             ];
 
         Print[
