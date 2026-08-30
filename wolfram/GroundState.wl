@@ -24,13 +24,30 @@ ClearAll[
 (* Magnetic equilibrium minimization                              *)
 (* --------------------------------------------------------------- *)
 
+Options[FindMagneticEquilibrium] = {
+    "Save" -> False,
+    "DMIType" -> Automatic
+};
+
 FindMagneticEquilibrium[
     genericEnergy_,
     parameterRules_List,
-    initialValues_List
+    initialValues_List,
+    OptionsPattern[]
 ] :=
     Module[
-        {specificEnergy},
+        {
+            specificEnergy,
+            result,
+            saveQ,
+            dmiType
+        },
+
+        saveQ =
+            OptionValue["Save"];
+
+        dmiType =
+            OptionValue["DMIType"];
 
         (* Insert physical parameters into the cached symbolic energy. *)
         specificEnergy =
@@ -39,7 +56,7 @@ FindMagneticEquilibrium[
             ];
 
         (* Minimize from the supplied initial ansatz. *)
-        FindMinimum[
+        result = FindMinimum[
             specificEnergy,
             initialValues,
             Method -> "Newton",
@@ -52,7 +69,25 @@ FindMagneticEquilibrium[
                 Print[
                     {a0, eta0, phi0, alphaR0} /. parameterRules
                 ]
-        ]
+        ];
+
+        (* Optional saving *)
+        If[
+            TrueQ[saveQ],
+            If[
+                dmiType === Automatic,
+                Print[
+                    "Equilibrium was not saved: specify the DMI type using \"DMIType\" -> \"Bloch\", \"Neel\", or \"Anti\"."
+                ],
+                SaveMagneticEquilibrium[
+                    result,
+                    parameterRules,
+                    dmiType
+                ]
+            ]
+        ];
+
+        result
     ];
 
 

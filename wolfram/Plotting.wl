@@ -267,10 +267,8 @@ Options[SkyrmionConfigurationPlot] = {
     Plot a saved magnetic equilibrium configuration.
 
     Input:
-        equilibrium
-
-            Association produced by SaveMagneticEquilibrium and
-            loaded using LoadMagneticEquilibrium.
+        equilibrium association produced by SaveMagneticEquilibrium and
+        loaded using LoadMagneticEquilibrium.
 
     Visualization:
         - color map: out-of-plane magnetization mz;
