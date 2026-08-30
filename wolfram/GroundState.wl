@@ -15,7 +15,8 @@ ClearAll[
     LoadMagneticEquilibrium,
     EquilibriumRules,
     EquilibriumAnsatz,
-    ParameterSweep
+    ParameterSweep,
+    GroundStateHelp
 ];
 
 
@@ -503,3 +504,32 @@ ParameterSweep[
             {parameterValue, parameterValues}
         ]
     ];
+
+
+(* --------------------------------------------------------------- *)
+(* Help                                                            *)
+(* --------------------------------------------------------------- *)
+
+GroundStateHelp[] :=
+    Column[
+        {
+            Style["GroundState.wl", Bold, 16],
+            "Ground-state minimization, equilibrium storage, loading and parameter continuation.",
+            Grid[
+                {
+                    {"Function", "Description"},
+                    {"FindMagneticEquilibrium", "Minimize the energy for fixed physical parameters and an initial ansatz."},
+                    {"SaveMagneticEquilibrium", "Save an equilibrium configuration and metadata to results/equilibria."},
+                    {"LoadMagneticEquilibrium", "Load a saved equilibrium by file name or by model parameters."},
+                    {"EquilibriumRules", "Combine optimized variables and fixed parameters, e.g. for plotting."},
+                    {"EquilibriumAnsatz", "Convert a compatible saved equilibrium into a FindMinimum ansatz."},
+                    {"ParameterSweep", "Follow a metastable equilibrium branch while varying one parameter."},
+                    {"EquilibriumExistsQ", "Check whether the expected equilibrium file already exists."}
+                },
+                Frame -> All,
+                Alignment -> Left
+            ]
+        }
+    ];
+
+Print[GroundStateHelp[]];

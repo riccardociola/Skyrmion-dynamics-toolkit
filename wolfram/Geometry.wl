@@ -37,7 +37,8 @@ ClearAll[
     toCRTc,
     toCRT,
     toAff,
-    toAffc
+    toAffc,
+    GeometryHelp
 ];
 
 
@@ -246,3 +247,35 @@ toAff[v_List, eta_, phi_, alphaR_] :=
 (* Cartesian components -> contravariant affine components. *)
 toAffc[v_List, eta_, phi_, alphaR_] :=
     (# . v) & /@ EE[eta, phi, alphaR];
+
+
+(* --------------------------------------------------------------- *)
+(* Help                                                            *)
+(* --------------------------------------------------------------- *)
+
+GeometryHelp[] :=
+    Column[
+        {
+            Style["Geometry.wl", Bold, 16],
+            "Affine geometry, reciprocal-lattice tools and coordinate transformations.",
+            Grid[
+                {
+                    {"Function", "Description"},
+                    {"ee / EE", "Return the affine basis and dual basis vectors."},
+                    {"metric / dualMetric", "Return the affine metric and inverse metric tensors."},
+                    {"Vpuc", "Return the primitive unit-cell area."},
+                    {"xi1 / xi2", "Convert Cartesian coordinates to affine coordinates."},
+                    {"X / Y", "Convert affine coordinates to Cartesian coordinates."},
+                    {"DotC / DotCn", "Scalar products for covariant / contravariant affine components."},
+                    {"G / Gc", "Return reciprocal-lattice vectors in affine components."},
+                    {"toCRT / toCRTc", "Convert affine vector components to Cartesian components."},
+                    {"toAff / toAffc", "Convert Cartesian vector components to affine components."},
+                    {"FT", "Numerically compute a Fourier coefficient over one primitive cell."}
+                },
+                Frame -> All,
+                Alignment -> Left
+            ]
+        }
+    ];
+
+Print[GeometryHelp[]];

@@ -7,7 +7,8 @@
 
 ClearAll[
     BuildMagneticEnergy,
-    MagneticEnergyCacheFile
+    MagneticEnergyCacheFile,
+    BuildEnergyHelp
 ];
 
 
@@ -58,6 +59,7 @@ BuildMagneticEnergy[
         {
             cacheFile,
             dmiEnergy,
+            NijCartesian,
             energy
         },
 
@@ -212,3 +214,27 @@ BuildMagneticEnergy[
 
 BuildMagneticEnergy::dmi =
     "Unknown DMI type `1`. Use \"Bloch\", \"Neel\" or \"Anti\".";
+
+
+(* --------------------------------------------------------------- *)
+(* Help                                                            *)
+(* --------------------------------------------------------------- *)
+
+BuildEnergyHelp[] :=
+    Column[
+        {
+            Style["BuildEnergy.wl", Bold, 16],
+            "Assembly, symbolic simplification and caching of magnetic energy functionals.",
+            Grid[
+                {
+                    {"Function", "Description"},
+                    {"BuildMagneticEnergy", "Build or load a cached SixFold magnetic energy for a chosen cutoff and DMI type."},
+                    {"MagneticEnergyCacheFile", "Return the cache path for a magnetic energy with a given cutoff and DMI type."}
+                },
+                Frame -> All,
+                Alignment -> Left
+            ]
+        }
+    ];
+
+Print[BuildEnergyHelp[]];

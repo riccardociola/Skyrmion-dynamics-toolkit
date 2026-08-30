@@ -16,7 +16,8 @@ ClearAll[
     MagnetostaticInfiniteEnergy,
     MagnetostaticFilmEnergy,
     MagnetostaticPeriodicEnergy,
-    ConstraintEnergy
+    ConstraintEnergy,
+    EnergyMagneticHelp
 ];
 
 
@@ -387,3 +388,34 @@ ConstraintEnergy[lambda_, eta_, phi_, alphaR_] :=
             {s2, -$FourierCutoff, $FourierCutoff}
         ]
     );
+
+
+(* --------------------------------------------------------------- *)
+(* Help                                                            *)
+(* --------------------------------------------------------------- *)
+
+EnergyMagneticHelp[] :=
+    Column[
+        {
+            Style["EnergyMagnetic.wl", Bold, 16],
+            "Magnetic contributions to the dimensionless free-energy functional.",
+            Grid[
+                {
+                    {"Function", "Description"},
+                    {"ExchangeEnergy", "Exchange contribution."},
+                    {"BlochDMIEnergy", "Bulk/Bloch DMI contribution."},
+                    {"NeelDMIEnergy", "Interfacial/Neel DMI contribution."},
+                    {"AntiDMIEnergy", "DMI contribution supporting antiskyrmions."},
+                    {"ZeemanEnergy", "Zeeman coupling to a field along z."},
+                    {"MagnetostaticInfiniteEnergy", "Magnetostatic energy for an extended sample with a Cartesian demagnetization tensor."},
+                    {"MagnetostaticFilmEnergy", "Magnetostatic energy for a film of finite thickness."},
+                    {"MagnetostaticPeriodicEnergy", "Magnetostatic energy for an infinite periodic multilayer."},
+                    {"ConstraintEnergy", "Quartic penalty enforcing the fixed magnetization length."}
+                },
+                Frame -> All,
+                Alignment -> Left
+            ]
+        }
+    ];
+
+Print[EnergyMagneticHelp[]];

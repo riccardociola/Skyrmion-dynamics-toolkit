@@ -11,21 +11,19 @@ ClearAll[
     hexagonNodeQ,
     independentNodeQ,
     independentNodes,
-
-    muR, muI,
-    uR, uI,
-
+    muR, 
+    muI,
+    uR, 
+    uI,
     MSixFold,
     MGeneral,
     UGeneral,
-
     M,
     U,
-
     MagneticVariables,
     ElasticVariables,
-
-    ConfigureFourierBasis
+    ConfigureFourierBasis,
+    FourierBasisHelp
 ];
 
 
@@ -337,3 +335,32 @@ M[n1_Integer, n2_Integer] :=
 (* Elastic displacement field. *)
 U[n1_Integer, n2_Integer] :=
     UGeneral[n1, n2, $FourierCutoff];
+
+
+(* --------------------------------------------------------------- *)
+(* Help                                                            *)
+(* --------------------------------------------------------------- *)
+
+FourierBasisHelp[] :=
+    Column[
+        {
+            Style["FourierBasis.wl", Bold, 16],
+            "Fourier-space field representations, reciprocal-space cutoff and reality constraints.",
+            Grid[
+                {
+                    {"Function", "Description"},
+                    {"ConfigureFourierBasis", "Set the reciprocal cutoff and magnetic representation (SixFold or General)."},
+                    {"M", "Return the active magnetic Fourier component M[n1,n2]."},
+                    {"U", "Return the elastic displacement Fourier component U[n1,n2]."},
+                    {"MagneticVariables", "Return the independent magnetic optimization variables."},
+                    {"ElasticVariables", "Return the independent elastic optimization variables."},
+                    {"independentNodes", "Return the independent reciprocal-space nodes inside the hexagonal cutoff."},
+                    {"hexagonNodeQ", "Test whether a reciprocal node lies inside the finite hexagonal cutoff."}
+                },
+                Frame -> All,
+                Alignment -> Left
+            ]
+        }
+    ];
+
+Print[FourierBasisHelp[]];

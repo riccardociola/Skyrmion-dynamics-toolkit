@@ -1,8 +1,27 @@
 (* ================================================================ *)
 (* Plotting.wl                                                      *)
 (*                                                                  *)
-(* Real-space reconstruction and visualization of skyrmion fields. *)
+(* Real-space reconstruction and visualization of saved            *)
+(* skyrmion-lattice equilibrium configurations.                     *)
 (* ================================================================ *)
+
+(*
+    Dependencies:
+        Geometry.wl
+        FourierBasis.wl
+        GroundState.wl
+
+    The main plotting routine expects a saved equilibrium Association
+    produced by SaveMagneticEquilibrium and loaded using
+    LoadMagneticEquilibrium.
+
+    Typical workflow:
+
+        equilibrium =
+            LoadMagneticEquilibrium["configuration_name.txt"];
+
+        SkyrmionConfigurationPlot[equilibrium];
+*)
 
 
 ClearAll[
@@ -13,7 +32,8 @@ ClearAll[
     Tpoint,
     WZC,
 
-    SkyrmionConfigurationPlot
+    SkyrmionConfigurationPlot,
+    PlottingHelp
 ];
 
 
@@ -24,6 +44,11 @@ ClearAll[
 (*
     Reconstruct the magnetic field from its Fourier components
     at affine coordinates (xi1, xi2).
+
+    solutionRules must contain both the optimized Fourier
+    coefficients and the fixed physical/lattice parameters.
+
+    The returned components are covariant affine components.
 *)
 MagnetizationAffine[
     xi1Coord_,
@@ -44,6 +69,13 @@ MagnetizationAffine[
 (*
     Reconstruct the magnetic field in Cartesian components
     at Cartesian coordinates (x,y).
+
+    The Cartesian position is first transformed to affine
+    coordinates, the Fourier series is reconstructed there,
+    and the resulting field is transformed back to Cartesian
+    components.
+
+    Small numerical imaginary parts are removed using Re and Chop.
 *)
 MagnetizationCartesian[
     x_,
@@ -69,6 +101,8 @@ MagnetizationCartesian[
         alphaValue =
             alphaR0 /. solutionRules;
 
+
+        (* Cartesian -> affine coordinates. *)
         xi1Value =
             xi1[
                 x,
@@ -87,6 +121,8 @@ MagnetizationCartesian[
                 alphaValue
             ];
 
+
+        (* Reconstruct Fourier field in affine components. *)
         mAffine =
             MagnetizationAffine[
                 xi1Value,
@@ -94,6 +130,8 @@ MagnetizationCartesian[
                 solutionRules
             ];
 
+
+        (* Affine -> Cartesian field components. *)
         Chop[
             Re[
                 toCRT[
@@ -111,7 +149,11 @@ MagnetizationCartesian[
 (* Wigner-Seitz cell                                              *)
 (* --------------------------------------------------------------- *)
 
-(* Shortest lattice vectors surrounding the origin. *)
+(*
+    Return the shortest lattice vectors surrounding the origin.
+    This is an internal helper used to construct the Wigner-Seitz
+    cell.
+*)
 neighborVectors[
     eta_,
     phi_,
@@ -134,7 +176,10 @@ neighborVectors[
     ];
 
 
-(* Vertices used to construct the Wigner-Seitz cell. *)
+(*
+    Construct the vertices used to define the Wigner-Seitz cell.
+    Internal helper for WZC.
+*)
 Tpoint[
     eta_,
     phi_,
@@ -162,7 +207,10 @@ Tpoint[
     ];
 
 
-(* Wigner-Seitz cell of the magnetic lattice. *)
+(*
+    Construct the real-space Wigner-Seitz cell of the magnetic
+    lattice.
+*)
 WZC[
     eta_,
     phi_,
@@ -198,36 +246,55 @@ WZC[
 
 Options[SkyrmionConfigurationPlot] = {
 
-    ImageSize -> 500,
+    (* Overall size of the final figure. *)
+    ImageSize -> 600,
 
+    (* Show frame, coordinate labels and physical-parameter title. *)
     "ShowFrameAndLabels" -> True,
 
+    (* Cartesian plotting range around the unit-cell center. *)
     "Range" -> 1.0,
 
+    (* Sampling density of the mz density plot. *)
     "PlotPoints" -> 80,
 
+    (* Sampling density of the in-plane vector field. *)
     "VectorPoints" -> 19
 };
 
 
 (*
-    Plot the magnetic configuration.
+    Plot a saved magnetic equilibrium configuration.
 
-    Color:
-        out-of-plane magnetization mz.
+    Input:
+        equilibrium
 
-    Arrows:
-        in-plane Cartesian magnetization (mx,my).
+            Association produced by SaveMagneticEquilibrium and
+            loaded using LoadMagneticEquilibrium.
 
-    Dashed boundary:
-        Wigner-Seitz cell.
+    Visualization:
+        - color map: out-of-plane magnetization mz;
+        - arrows: in-plane Cartesian magnetization (mx,my);
+        - dashed line: Wigner-Seitz-cell boundary.
+
+    When "ShowFrameAndLabels" -> True, the plot also displays:
+        - Cartesian coordinate labels;
+        - DMI type;
+        - magnetic field b;
+        - dipolar strength xi.
 *)
 SkyrmionConfigurationPlot[
-    solutionRules_List,
+    equilibrium_Association,
     OptionsPattern[]
 ] :=
     Module[
         {
+            solutionRules,
+
+            dmiType,
+            bValue,
+            xiValue,
+
             etaValue,
             phiValue,
             alphaValue,
@@ -242,13 +309,37 @@ SkyrmionConfigurationPlot[
             vectorPoints,
 
             frameLabels,
+            plotTitle,
+
             densityPlot,
             vectorPlot,
             cellBoundary
         },
 
 
-        (* Equilibrium lattice parameters. *)
+        (* ------------------------------------------------------- *)
+        (* Extract saved equilibrium data                         *)
+        (* ------------------------------------------------------- *)
+
+        solutionRules =
+            EquilibriumRules[
+                equilibrium
+            ];
+
+        dmiType =
+            equilibrium["DMIType"];
+
+        bValue =
+            b /. equilibrium["Parameters"];
+
+        xiValue =
+            xi /. equilibrium["Parameters"];
+
+
+        (* ------------------------------------------------------- *)
+        (* Equilibrium lattice parameters                         *)
+        (* ------------------------------------------------------- *)
+
         etaValue =
             eta0 /. solutionRules;
 
@@ -259,7 +350,10 @@ SkyrmionConfigurationPlot[
             alphaR0 /. solutionRules;
 
 
-        (* Plot options. *)
+        (* ------------------------------------------------------- *)
+        (* Plot options                                            *)
+        (* ------------------------------------------------------- *)
+
         imageSize =
             OptionValue[ImageSize];
 
@@ -276,7 +370,10 @@ SkyrmionConfigurationPlot[
             OptionValue["VectorPoints"];
 
 
-        (* Center the plot around the primitive cell. *)
+        (* ------------------------------------------------------- *)
+        (* Plot center                                             *)
+        (* ------------------------------------------------------- *)
+
         centerX =
             x0[
                 etaValue,
@@ -292,6 +389,10 @@ SkyrmionConfigurationPlot[
             ];
 
 
+        (* ------------------------------------------------------- *)
+        (* Frame labels and title                                  *)
+        (* ------------------------------------------------------- *)
+
         frameLabels =
             If[
                 showFrameAndLabels,
@@ -300,7 +401,40 @@ SkyrmionConfigurationPlot[
             ];
 
 
-        (* Out-of-plane magnetization. *)
+        plotTitle =
+            If[
+                showFrameAndLabels,
+
+                Style[
+                    Row[
+                        {
+                            dmiType,
+                            " DMI   |   ",
+                            "b = ",
+                            NumberForm[
+                                N[bValue],
+                                {5, 3}
+                            ],
+                            "   |   ",
+                            "\[Xi] = ",
+                            NumberForm[
+                                N[xiValue],
+                                {5, 3}
+                            ]
+                        }
+                    ],
+                    16,
+                    Bold
+                ],
+
+                None
+            ];
+
+
+        (* ------------------------------------------------------- *)
+        (* Out-of-plane magnetization                             *)
+        (* ------------------------------------------------------- *)
+
         densityPlot =
             DensityPlot[
                 Evaluate[
@@ -323,20 +457,32 @@ SkyrmionConfigurationPlot[
                     centerY + range
                 },
 
-                PlotPoints -> plotPoints,
+                PlotPoints ->
+                    plotPoints,
 
-                ColorFunction -> "LightTemperatureMap",
-                ColorFunctionScaling -> True,
+                ColorFunction ->
+                    "LightTemperatureMap",
 
-                AspectRatio -> 1,
+                ColorFunctionScaling ->
+                    True,
 
-                Frame -> showFrameAndLabels,
-                FrameLabel -> frameLabels,
+                AspectRatio ->
+                    1,
 
-                LabelStyle -> 16,
+                Frame ->
+                    showFrameAndLabels,
 
-                PlotRange -> All,
-                PlotRangePadding -> None,
+                FrameLabel ->
+                    frameLabels,
+
+                LabelStyle ->
+                    16,
+
+                PlotRange ->
+                    All,
+
+                PlotRangePadding ->
+                    None,
 
                 PlotLegends ->
                     BarLegend[
@@ -346,7 +492,10 @@ SkyrmionConfigurationPlot[
             ];
 
 
-        (* In-plane magnetization. *)
+        (* ------------------------------------------------------- *)
+        (* In-plane magnetization                                 *)
+        (* ------------------------------------------------------- *)
+
         vectorPlot =
             VectorPlot[
                 Evaluate[
@@ -372,23 +521,36 @@ SkyrmionConfigurationPlot[
                 VectorScale ->
                     {0.03, Automatic, Automatic},
 
-                VectorColorFunction -> None,
+                VectorColorFunction ->
+                    None,
 
                 VectorStyle ->
-                    {GrayLevel[0.2], Thick},
+                    {
+                        GrayLevel[0.2],
+                        Thick
+                    },
 
-                VectorPoints -> vectorPoints,
+                VectorPoints ->
+                    vectorPoints,
 
-                Frame -> showFrameAndLabels,
-                FrameLabel -> frameLabels,
+                Frame ->
+                    showFrameAndLabels,
 
-                LabelStyle -> 16,
+                FrameLabel ->
+                    frameLabels,
 
-                PlotRangePadding -> None
+                LabelStyle ->
+                    16,
+
+                PlotRangePadding ->
+                    None
             ];
 
 
-        (* Wigner-Seitz-cell boundary. *)
+        (* ------------------------------------------------------- *)
+        (* Wigner-Seitz-cell boundary                             *)
+        (* ------------------------------------------------------- *)
+
         cellBoundary =
             RegionPlot[
                 WZC[
@@ -397,20 +559,61 @@ SkyrmionConfigurationPlot[
                     alphaValue
                 ],
 
-                PlotStyle -> None,
+                PlotStyle ->
+                    None,
 
                 BoundaryStyle ->
-                    {Thick, Dashed, Black}
+                    {
+                        Thick,
+                        Dashed,
+                        Black
+                    }
             ];
 
+
+        (* ------------------------------------------------------- *)
+        (* Final combined plot                                     *)
+        (* ------------------------------------------------------- *)
 
         Show[
             densityPlot,
             vectorPlot,
             cellBoundary,
 
-            ImageSize -> imageSize,
+            ImageSize ->
+                imageSize,
 
-            Frame -> showFrameAndLabels
+            Frame ->
+                showFrameAndLabels,
+
+            PlotLabel ->
+                plotTitle
         ]
     ];
+
+
+(* --------------------------------------------------------------- *)
+(* Help                                                            *)
+(* --------------------------------------------------------------- *)
+
+PlottingHelp[] :=
+    Column[
+        {
+            Style["Plotting.wl", Bold, 16],
+            "Real-space reconstruction and visualization of saved magnetic skyrmion-lattice equilibria.",
+            Grid[
+                {
+                    {"Function", "Description"},
+                    {"MagnetizationAffine", "Reconstruct the magnetization in covariant affine components."},
+                    {"MagnetizationCartesian", "Reconstruct the magnetization in Cartesian components at (x,y)."},
+                    {"WZC", "Construct the real-space Wigner-Seitz cell."},
+                    {"SkyrmionConfigurationPlot", "Plot a loaded saved equilibrium, including mz, in-plane magnetization and the Wigner-Seitz boundary."},
+                    {"neighborVectors / Tpoint", "Internal geometric helpers used to construct the Wigner-Seitz cell."}
+                },
+                Frame -> All,
+                Alignment -> Left
+            ]
+        }
+    ];
+
+Print[PlottingHelp[]];
