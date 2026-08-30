@@ -233,3 +233,22 @@ Print[ OutputForm["-> Test loading functionality inside GroundState.wl"] ];
     ];
 
 Print[ OutputForm["The configuration was succesfully loaded!"] ];
+
+Print[ OutputForm["-> Now let's test a field sweep"] ];
+
+fieldSweep =
+    ParameterSweep[
+        emag,
+        "Bloch",
+        {
+            xi -> 0.88,
+            lambda -> 500,
+            Nx -> 1/3,
+            Ny -> 1/3,
+            Nz -> 1/3,
+            alphaR0 -> 0
+        },
+        b,
+        Range[0.5, 0.7, 0.025],
+        initialValues
+    ];
