@@ -1,11 +1,18 @@
-Import wolfram files to compute equilibrium configurations
+(* ================================================================ *)
+(* Import wolfram files to compute equilibrium configurations *)
+(* ================================================================ *)
+
+Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "Geometry.wl"}]];
 Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "FourierBasis.wl"}]];
 Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "EnergyMagnetic.wl"}]];
 Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "BuildEnergy.wl"}]];
 Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "GroundState.wl"}]];
 Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "Plotting.wl"}]];
-Equilibrium configurations for magnetic SkL
-Calculate and plot individual solutions
+
+(* ================================================================ *)
+(* Equilibrium configurations for magnetic SkL *)
+(* ================================================================ *)
+
 (* Build energy functional *)
 
 emag=BuildMagneticEnergy[2,"Bloch"];
@@ -30,9 +37,15 @@ result=FindMagneticEquilibrium[emag,parameters,EquilibriumAnsatz[initialState], 
 (* Plot the new SkL configuration *)
 
 SkyrmionConfigurationPlot[LoadMagneticEquilibrium["Bloch_N2_b0.45_xi0.88_Nz0.333333.txt"]]
-Calculate a field sweep
+
+(* Calculate a field sweep *)
+
 fieldSweep=ParameterSweep[emag, "Bloch", {xi->0.88,lambda->500,Nx->1/3,Ny->1/3,Nz->1/3,alphaR0->0}, b, Range[0.5,0.3,-0.025], EquilibriumAnsatz[LoadMagneticEquilibrium["Bloch_N2_b0.5_xi0.88_Nz0.333333.txt"]]];
+
 SkyrmionConfigurationPlot[LoadMagneticEquilibrium["Bloch_N2_b0.3_xi0.88_Nz0.333333.txt"], 
 PlotPoints->150, ImageSize->550, Range->0.8]
+
+(* Plot parameters over field sweep range *)
+
 ListPlot[Table[{b, LoadMagneticEquilibrium["Bloch_N2_b"<>ToString[b]<>"_xi0.88_Nz0.333333.txt"][[1]]}, {b, 0.3, 0.7, 0.025}]]
 ListPlot[Table[{b, a0/.LoadMagneticEquilibrium["Bloch_N2_b"<>ToString[b]<>"_xi0.88_Nz0.333333.txt"][[2]]}, {b, 0.3, 0.7, 0.025}]]
