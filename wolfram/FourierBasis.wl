@@ -319,17 +319,46 @@ ConfigureFourierBasis[
     ];
 
 
-(* Active magnetic Fourier field. *)
-M[n1_Integer, n2_Integer] :=
+MagneticFourierComponent[
+    n1_Integer,
+    n2_Integer,
+    cutoff_Integer?NonNegative,
+    representation_String
+] :=
     Switch[
-        $MagneticRepresentation,
+        representation,
 
         "SixFold",
-        MSixFold[n1, n2, $FourierCutoff],
+        MSixFold[
+            n1,
+            n2,
+            cutoff
+        ],
 
         "General",
-        MGeneral[n1, n2, $FourierCutoff]
+        MGeneral[
+            n1,
+            n2,
+            cutoff
+        ],
+
+        _,
+        Message[
+            MagneticFourierComponent::representation,
+            representation
+        ];
+
+        $Failed
     ];
+
+
+MagneticFourierComponent::representation =
+    "Unknown magnetic representation `1`.";
+
+
+(* Active magnetic Fourier field. *)
+M[n1_Integer, n2_Integer] :=
+    MagneticFourierComponent[n1, n2, $FourierCutoff, $MagneticRepresentation];
 
 
 (* Elastic displacement field. *)
