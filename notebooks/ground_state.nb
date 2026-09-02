@@ -1,104 +1,19 @@
 Import wolfram files to compute equilibrium configurations
-In[1]:= Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "Geometry.wl"}]];
 Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "FourierBasis.wl"}]];
 Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "EnergyMagnetic.wl"}]];
 Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "BuildEnergy.wl"}]];
 Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "GroundState.wl"}]];
 Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "Plotting.wl"}]];
-During evaluation of In[1]:= Geometry.wl
-Affine geometry, reciprocal-lattice tools and coordinate transformations.
-Function	Description
-ee / EE	Return the affine basis and dual basis vectors.
-metric / dualMetric	Return the affine metric and inverse metric tensors.
-Vpuc	Return the primitive unit-cell area.
-xi1 / xi2	Convert Cartesian coordinates to affine coordinates.
-X / Y	Convert affine coordinates to Cartesian coordinates.
-DotC / DotCn	Scalar products for covariant / contravariant affine components.
-G / Gc	Return reciprocal-lattice vectors in affine components.
-toCRT / toCRTc	Convert affine vector components to Cartesian components.
-toAff / toAffc	Convert Cartesian vector components to affine components.
-FT	Numerically compute a Fourier coefficient over one primitive cell.
-
-
-
-
-During evaluation of In[1]:= FourierBasis.wl
-Fourier-space field representations, reciprocal-space cutoff and reality constraints.
-Function	Description
-ConfigureFourierBasis	Set the reciprocal cutoff and magnetic representation (SixFold or General).
-M	Return the active magnetic Fourier component M[n1,n2].
-U	Return the elastic displacement Fourier component U[n1,n2].
-MagneticVariables	Return the independent magnetic optimization variables.
-ElasticVariables	Return the independent elastic optimization variables.
-independentNodes	Return the independent reciprocal-space nodes inside the hexagonal cutoff.
-hexagonNodeQ	Test whether a reciprocal node lies inside the finite hexagonal cutoff.
-
-
-
-
-During evaluation of In[1]:= EnergyMagnetic.wl
-Magnetic contributions to the dimensionless free-energy functional.
-Function	Description
-ExchangeEnergy	Exchange contribution.
-BlochDMIEnergy	Bulk/Bloch DMI contribution.
-NeelDMIEnergy	Interfacial/Neel DMI contribution.
-AntiDMIEnergy	DMI contribution supporting antiskyrmions.
-ZeemanEnergy	Zeeman coupling to a field along z.
-MagnetostaticInfiniteEnergy	Magnetostatic energy for an extended sample with a Cartesian demagnetization tensor.
-MagnetostaticFilmEnergy	Magnetostatic energy for a film of finite thickness.
-MagnetostaticPeriodicEnergy	Magnetostatic energy for an infinite periodic multilayer.
-ConstraintEnergy	Quartic penalty enforcing the fixed magnetization length.
-
-
-
-
-During evaluation of In[1]:= BuildEnergy.wl
-Assembly, symbolic simplification and caching of magnetic energy functionals.
-Function	Description
-BuildMagneticEnergy	Build or load a cached SixFold magnetic energy for a chosen cutoff and DMI type.
-MagneticEnergyCacheFile	Return the cache path for a magnetic energy with a given cutoff and DMI type.
-
-
-
-
-During evaluation of In[1]:= GroundState.wl
-Ground-state minimization, equilibrium storage, loading and parameter continuation.
-Function	Description
-FindMagneticEquilibrium	Minimize the energy for fixed physical parameters and an initial ansatz.
-SaveMagneticEquilibrium	Save an equilibrium configuration and metadata to results/equilibria.
-LoadMagneticEquilibrium	Load a saved equilibrium by file name or by model parameters.
-EquilibriumRules	Combine optimized variables and fixed parameters, e.g. for plotting.
-EquilibriumAnsatz	Convert a compatible saved equilibrium into a FindMinimum ansatz.
-ParameterSweep	Follow a metastable equilibrium branch while varying one parameter.
-EquilibriumExistsQ	Check whether the expected equilibrium file already exists.
-
-
-
-
-During evaluation of In[1]:= Plotting.wl
-Real-space reconstruction and visualization of saved magnetic skyrmion-lattice equilibria.
-Function	Description
-MagnetizationAffine	Reconstruct the magnetization in covariant affine components.
-MagnetizationCartesian	Reconstruct the magnetization in Cartesian components at (x,y).
-WZC	Construct the real-space Wigner-Seitz cell.
-SkyrmionConfigurationPlot	Plot a loaded saved equilibrium, including mz, in-plane magnetization and the Wigner-Seitz boundary.
-neighborVectors / Tpoint	Internal geometric helpers used to construct the Wigner-Seitz cell.
-
-
-
-
 Equilibrium configurations for magnetic SkL
 Calculate and plot individual solutions
-In[7]:= (* Build energy functional *)
+(* Build energy functional *)
 
 emag=BuildMagneticEnergy[2,"Bloch"];
-During evaluation of In[7]:= Loading cached magnetic energy: C:\Users\ricca\Desktop\Git_project\skyrmion-dynamics-toolkit\cache\energies\magnetic_bloch_N2.txt
-In[8]:= 
+
 (* Load initial state *)
 
 initialState=LoadMagneticEquilibrium["Bloch_N2_b0.5_xi0.88_Nz0.333333.txt"]
-Out[8]= <|Energy->-0.5598587746603767130910170328236906211560,Solution->{muI[1,-1,1]->-0.01022143506265785811055671777825686102768,muI[2,-1,1]->-0.01022143506265785812215532358837994040650,muR[3,-1,1]->-0.001118984545690184560799237139696277103248,muI[1,0,1]->-0.2890037668843387440128320554924441593794,muI[2,0,1]->-0.1445018834421693719977074428791904871126,muR[3,0,1]->0.2493783829785044608880492029153079387350,muI[1,0,2]->-0.02352059533993850491231142761791127112108,muI[2,0,2]->-0.01176029766996925244914550469373494431737,muR[3,0,2]->0.02660371972141250919252316589857890654931,muI[1,1,1]->0.1445018834421693718034314147909994842031,muI[2,1,1]->-0.1445018834421693717060604029239961181407,muR[3,1,1]->-0.2493783829785044605245206416289055159645,muI[1,1,2]->0.01022143506265785804035485232470746070270,muI[2,1,2]->-1.004486880074769489955260721195030671542*10^-20,muR[3,1,2]->0.001118984545690184623278607170718394409731,muI[1,2,1]->-1.870215518350901286344951001280856777861*10^-21,muI[2,2,1]->-0.01022143506265785852391615009426321492011,muR[3,2,1]->0.001118984545690184197354706054074541372609,muI[1,2,2]->-0.01176029766996925255769679091267924655919,muI[2,2,2]->0.01176029766996925247080612279715960104660,muR[3,2,2]->0.02660371972141250931643927532982838845657,muR[3,0,0]->0.3431977072607554777752022189471259041646,muI[1,1,0]->0.1445018834421693717499679382625961408944,muI[2,1,0]->0.2890037668843387434206954905696100662649,muR[3,1,0]->0.2493783829785044604620203717518359923073,muI[1,2,0]->0.01176029766996925256132240941408776131048,muI[2,2,0]->0.02352059533993850504976339554492716868228,muR[3,2,0]->0.02660371972141250933922975879709518720810,a0->7.481789241990172996380563065704271152982,eta0->0.9999999999999999997844101546833949087572,phi0->-7.936171036361479628227569804817214795308*10^-20},Parameters->{b->0.5,xi->0.88,lambda->500,Nx->1/3,Ny->1/3,Nz->1/3,alphaR0->0},DMIType->Bloch,FourierCutoff->2,MagneticRepresentation->SixFold|>
-In[9]:= 
+
 (* Calculate a new SkL configuration and save it *)
 
 parameters = {
@@ -111,45 +26,13 @@ parameters = {
     alphaR0 -> 0};
 
 result=FindMagneticEquilibrium[emag,parameters,EquilibriumAnsatz[initialState], "Save"->True, "DMIType"->"Bloch"];
-During evaluation of In[9]:= FindMinimum::precw: The precision of the argument function (-0.45 muR[3, 0, 0] + <<3>> - Divide[(2 I) ((8 I) Pi muI[1, -1, 1] muR[3, -1, 1] + (8 I) Pi muI[2, -1, 1] muR[3, -1, 1] + (8 I) Pi muI[1, 0, 1] muR[3, 0, 1] + <<9>> + (16 I) <<3>> - (16 I) Pi muI[2, 2, 2] muR[3, 2, 2]), a0 Power[<<2>>]]) is less than WorkingPrecision (40.`).
-During evaluation of In[9]:= {7.495519145555829139562891742056051914329,0.9999999999999999994139419797946326898109,-6.001103203051045589476580806263752030439*10^-19,0}
-During evaluation of In[9]:= {7.511513147643348528402791004020502480120,0.9986811661840493966634017072146128074457,-0.0006407694333614206863649070974483395793998,0}
-During evaluation of In[9]:= {7.509578522101158706517481176509930593567,1.000019061734391810839309433036196450339,-0.00003336538712444631318356619058633811882116,0}
-During evaluation of In[9]:= {7.510336040948023427445908903473099687401,0.9999851119461728470077750204654376580812,-0.00001269647229807401114625102617120079249024,0}
-During evaluation of In[9]:= {7.510272449729250922759721624929125733166,0.9999999154277021655235916983240383118389,-1.018278343506103694921571470293638606159*10^-7,0}
-During evaluation of In[9]:= {7.510271934559924859469194304126328920099,0.9999999999928803178690342066558945710756,-7.258857302028892752153133783044897691875*10^-12,0}
-During evaluation of In[9]:= {7.510271934519444111480318544510255670306,0.9999999999999999999462483301927419454338,-5.825484354203240923401853596388376393850*10^-20,0}
-During evaluation of In[9]:= Equilibrium configuration saved to: C:\Users\ricca\Desktop\Git_project\skyrmion-dynamics-toolkit\results\equilibria\Bloch_N2_b0.45_xi0.88_Nz0.333333.txt
-In[11]:= 
+
 (* Plot the new SkL configuration *)
 
 SkyrmionConfigurationPlot[LoadMagneticEquilibrium["Bloch_N2_b0.45_xi0.88_Nz0.333333.txt"]]
-Out[11]= mz
-
-
-
 Calculate a field sweep
-In[12]:= fieldSweep=ParameterSweep[emag, "Bloch", {xi->0.88,lambda->500,Nx->1/3,Ny->1/3,Nz->1/3,alphaR0->0}, b, Range[0.5,0.3,-0.025],EquilibriumAnsatz[LoadMagneticEquilibrium["Bloch_N2_b0.5_xi0.88_Nz0.333333.txt"]]];
-During evaluation of In[12]:= b = 0.5
-During evaluation of In[12]:= Existing equilibrium found. Loading...
-During evaluation of In[12]:= b = 0.475
-During evaluation of In[12]:= Existing equilibrium found. Loading...
-During evaluation of In[12]:= b = 0.45
-During evaluation of In[12]:= Existing equilibrium found. Loading...
-During evaluation of In[12]:= b = 0.425
-During evaluation of In[12]:= Existing equilibrium found. Loading...
-During evaluation of In[12]:= b = 0.4
-During evaluation of In[12]:= Existing equilibrium found. Loading...
-During evaluation of In[12]:= b = 0.375
-During evaluation of In[12]:= Existing equilibrium found. Loading...
-During evaluation of In[12]:= b = 0.35
-During evaluation of In[12]:= Existing equilibrium found. Loading...
-During evaluation of In[12]:= b = 0.325
-During evaluation of In[12]:= Existing equilibrium found. Loading...
-During evaluation of In[12]:= b = 0.3
-During evaluation of In[12]:= Existing equilibrium found. Loading...
-In[13]:= SkyrmionConfigurationPlot[LoadMagneticEquilibrium["Bloch_N2_b0.3_xi0.88_Nz0.333333.txt"], 
+fieldSweep=ParameterSweep[emag, "Bloch", {xi->0.88,lambda->500,Nx->1/3,Ny->1/3,Nz->1/3,alphaR0->0}, b, Range[0.5,0.3,-0.025], EquilibriumAnsatz[LoadMagneticEquilibrium["Bloch_N2_b0.5_xi0.88_Nz0.333333.txt"]]];
+SkyrmionConfigurationPlot[LoadMagneticEquilibrium["Bloch_N2_b0.3_xi0.88_Nz0.333333.txt"], 
 PlotPoints->150, ImageSize->550, Range->0.8]
-Out[13]= mz
-
-
+ListPlot[Table[{b, LoadMagneticEquilibrium["Bloch_N2_b"<>ToString[b]<>"_xi0.88_Nz0.333333.txt"][[1]]}, {b, 0.3, 0.7, 0.025}]]
+ListPlot[Table[{b, a0/.LoadMagneticEquilibrium["Bloch_N2_b"<>ToString[b]<>"_xi0.88_Nz0.333333.txt"][[2]]}, {b, 0.3, 0.7, 0.025}]]
