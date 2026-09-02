@@ -53,17 +53,44 @@ ClearAll[
 MagnetizationAffine[
     xi1Coord_,
     xi2Coord_,
-    solutionRules_List
+    equilibrium_Association
 ] :=
-    Sum[
-        M[n1, n2]
-        Exp[
-            I G[n1, n2] . {xi1Coord, xi2Coord, 0}
-        ],
+    Module[
+        {
+            cutoff,
+            representation,
+            solutionRules
+        },
 
-        {n1, -$FourierCutoff, $FourierCutoff},
-        {n2, -$FourierCutoff, $FourierCutoff}
-    ] /. solutionRules;
+        cutoff =
+            equilibrium["FourierCutoff"];
+
+        representation =
+            equilibrium["MagneticRepresentation"];
+
+        solutionRules =
+            EquilibriumRules[
+                equilibrium
+            ];
+
+
+        Sum[
+            MagneticFourierComponent[
+                n1,
+                n2,
+                cutoff,
+                representation
+            ]
+            Exp[
+                I G[n1, n2] .
+                {xi1Coord, xi2Coord, 0}
+            ],
+
+            {n1, -cutoff, cutoff},
+            {n2, -cutoff, cutoff}
+        ]
+        /. solutionRules
+    ];
 
 
 (*
@@ -80,10 +107,11 @@ MagnetizationAffine[
 MagnetizationCartesian[
     x_,
     y_,
-    solutionRules_List
+    equilibrium_Association
 ] :=
     Module[
         {
+            solutionRules,
             etaValue,
             phiValue,
             alphaValue,
@@ -91,6 +119,11 @@ MagnetizationCartesian[
             xi2Value,
             mAffine
         },
+
+        solutionRules =
+            EquilibriumRules[
+                equilibrium
+            ];
 
         etaValue =
             eta0 /. solutionRules;
@@ -102,7 +135,6 @@ MagnetizationCartesian[
             alphaR0 /. solutionRules;
 
 
-        (* Cartesian -> affine coordinates. *)
         xi1Value =
             xi1[
                 x,
@@ -122,16 +154,14 @@ MagnetizationCartesian[
             ];
 
 
-        (* Reconstruct Fourier field in affine components. *)
         mAffine =
             MagnetizationAffine[
                 xi1Value,
                 xi2Value,
-                solutionRules
+                equilibrium
             ];
 
 
-        (* Affine -> Cartesian field components. *)
         Chop[
             Re[
                 toCRT[
@@ -439,7 +469,7 @@ SkyrmionConfigurationPlot[
                     MagnetizationCartesian[
                         x,
                         y,
-                        solutionRules
+                        equilibrium
                     ][[3]]
                 ],
 
@@ -500,7 +530,7 @@ SkyrmionConfigurationPlot[
                     MagnetizationCartesian[
                         x,
                         y,
-                        solutionRules
+                        equilibrium
                     ][[1 ;; 2]]
                 ],
 

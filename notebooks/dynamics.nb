@@ -1,0 +1,146 @@
+In[12]:= (* ================================================================ *)
+(* Import wolfram files to compute magnon dynamics *)
+(* ================================================================ *)
+
+Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "Geometry.wl"}]];
+Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "FourierBasis.wl"}]];
+Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "EnergyMagnetic.wl"}]];
+Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "BuildEnergy.wl"}]];
+Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "GroundState.wl"}]];
+Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "Plotting.wl"}]];
+Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "DynamicsProjection.wl"}]];
+Get[FileNameJoin[{NotebookDirectory[], "..", "wolfram", "DynamicsMagnetic.wl"}]];
+During evaluation of In[12]:= Geometry.wl
+Affine geometry, reciprocal-lattice tools and coordinate transformations.
+Function	Description
+ee / EE	Return the affine basis and dual basis vectors.
+metric / dualMetric	Return the affine metric and inverse metric tensors.
+Vpuc	Return the primitive unit-cell area.
+xi1 / xi2	Convert Cartesian coordinates to affine coordinates.
+X / Y	Convert affine coordinates to Cartesian coordinates.
+DotC / DotCn	Scalar products for covariant / contravariant affine components.
+G / Gc	Return reciprocal-lattice vectors in affine components.
+toCRT / toCRTc	Convert affine vector components to Cartesian components.
+toAff / toAffc	Convert Cartesian vector components to affine components.
+FT	Numerically compute a Fourier coefficient over one primitive cell.
+
+
+
+
+During evaluation of In[12]:= FourierBasis.wl
+Fourier-space field representations, reciprocal-space cutoff and reality constraints.
+Function	Description
+ConfigureFourierBasis	Set the reciprocal cutoff and magnetic representation (SixFold or General).
+M	Return the active magnetic Fourier component M[n1,n2].
+U	Return the elastic displacement Fourier component U[n1,n2].
+MagneticVariables	Return the independent magnetic optimization variables.
+ElasticVariables	Return the independent elastic optimization variables.
+independentNodes	Return the independent reciprocal-space nodes inside the hexagonal cutoff.
+hexagonNodeQ	Test whether a reciprocal node lies inside the finite hexagonal cutoff.
+
+
+
+
+During evaluation of In[12]:= EnergyMagnetic.wl
+Magnetic contributions to the dimensionless free-energy functional.
+Function	Description
+ExchangeEnergy	Exchange contribution.
+BlochDMIEnergy	Bulk/Bloch DMI contribution.
+NeelDMIEnergy	Interfacial/Neel DMI contribution.
+AntiDMIEnergy	DMI contribution supporting antiskyrmions.
+ZeemanEnergy	Zeeman coupling to a field along z.
+MagnetostaticInfiniteEnergy	Magnetostatic energy for an extended sample with a Cartesian demagnetization tensor.
+MagnetostaticFilmEnergy	Magnetostatic energy for a film of finite thickness.
+MagnetostaticPeriodicEnergy	Magnetostatic energy for an infinite periodic multilayer.
+ConstraintEnergy	Quartic penalty enforcing the fixed magnetization length.
+
+
+
+
+During evaluation of In[12]:= BuildEnergy.wl
+Assembly, symbolic simplification and caching of magnetic energy functionals.
+Function	Description
+BuildMagneticEnergy	Build or load a cached SixFold magnetic energy for a chosen cutoff and DMI type.
+MagneticEnergyCacheFile	Return the cache path for a magnetic energy with a given cutoff and DMI type.
+
+
+
+
+During evaluation of In[12]:= GroundState.wl
+Ground-state minimization, equilibrium storage, loading and parameter continuation.
+Function	Description
+FindMagneticEquilibrium	Minimize the energy for fixed physical parameters and an initial ansatz.
+SaveMagneticEquilibrium	Save an equilibrium configuration and metadata to results/equilibria.
+LoadMagneticEquilibrium	Load a saved equilibrium by file name or by model parameters.
+EquilibriumRules	Combine optimized variables and fixed parameters, e.g. for plotting.
+EquilibriumAnsatz	Convert a compatible saved equilibrium into a FindMinimum ansatz.
+ParameterSweep	Follow a metastable equilibrium branch while varying one parameter.
+EquilibriumExistsQ	Check whether the expected equilibrium file already exists.
+
+
+
+
+During evaluation of In[12]:= Plotting.wl
+Real-space reconstruction and visualization of saved magnetic skyrmion-lattice equilibria.
+Function	Description
+MagnetizationAffine	Reconstruct the magnetization in covariant affine components.
+MagnetizationCartesian	Reconstruct the magnetization in Cartesian components at (x,y).
+WZC	Construct the real-space Wigner-Seitz cell.
+SkyrmionConfigurationPlot	Plot a loaded saved equilibrium, including mz, in-plane magnetization and the Wigner-Seitz boundary.
+neighborVectors / Tpoint	Internal geometric helpers used to construct the Wigner-Seitz cell.
+
+
+
+
+During evaluation of In[12]:= DynamicsProjection.wl
+Common reciprocal-space and transverse-projection tools for magnetic and magnetoelastic dynamics.
+Function	Description
+DynamicsNodes	Return all reciprocal-lattice nodes inside the dynamical hexagonal cutoff.
+EquilibriumMagnetization	Return a Fourier component of a saved equilibrium magnetization.
+CrossProductMatrix	Return the Cartesian matrix representing m x v.
+BuildM0CrossOperator	Construct the full Fourier-space M0 x operator.
+BuildMagneticTransverseBasis	Construct the well-resolved transverse magnetic basis, projected M0 x operator and verified inverse.
+ProjectMagneticVector	Project a full magnetic fluctuation vector onto the transverse basis.
+LiftMagneticVector	Lift a transverse magnetic vector back to the full Fourier space.
+ProjectMagneticOperator	Project a magnetic operator onto the transverse magnetic subspace.
+
+
+
+
+During evaluation of In[12]:= DynamicsMagnetic.wl
+Analytical magnetic Hessian construction and linearized Landau-Lifshitz dynamics around a saved equilibrium.
+Function	Description
+BlochDMIHessianBlock	Return the Cartesian Bloch-DMI Hessian block for one wavevector.
+MagneticQuadraticBlock	Return the 3 x 3 quadratic magnetic Hessian block including exchange, DMI, dipolar and constraint terms.
+BuildMagneticQuadraticHessian	Construct the reciprocal-node-diagonal contribution H_k.
+BuildConstraintHessian	Construct the texture-dependent convolution contribution H_e from the quartic constraint.
+BuildMagneticHessian	Assemble the full magnetic Hessian for a chosen Bloch wavevector.
+BuildProjectedMagneticHessian	Construct the magnetic Hessian directly in the transverse basis, reusing the projected k-independent contribution.
+PrepareMagneticDynamics	Precompute the k-independent projection and Hessian data for one equilibrium.
+BuildLLDynamicalMatrix	Project the Hessian and construct the linearized LL dynamical matrix.
+MagneticBdGInnerProduct / MagneticBdGNorm	Evaluate the magnetic BdG inner product and norm in the transverse basis.
+NormalizeMagneticMode	Normalize one transverse magnetic eigenvector using the BdG norm.
+SolveMagneticModes	Diagonalize the LL matrix and return positive-frequency normalized magnon modes.
+
+
+
+
+In[22]:= equilibrium = LoadMagneticEquilibrium["Bloch_N4_b0.5_xi0.88_Nz0.333333.txt"]
+Out[22]= <|Energy->-0.5698190776619686569828571635937844046139,Solution->{muI[1,-1,1]->-0.004762200681515820375774298054344670651114,muI[2,-1,1]->-0.004762200681515844873672821930929162655568,muR[3,-1,1]->0.0005983373536567941132905563969510685584411,muI[1,0,1]->-0.2772541168678285804582324201381165035722,muI[2,0,1]->-0.1386270584339147896559459512958517672591,muR[3,0,1]->0.2617240894084111747388635055817605865998,muI[1,0,2]->-0.03027584744333915713550321291829359582790,muI[2,0,2]->-0.01513792372166958078436672235986797144776,muR[3,0,2]->0.02863080523873700373215796292676510122595,muI[1,1,1]->0.1386270584339193815072370323866329370434,muI[2,1,1]->-0.1386270584339201074504263530143728733572,muR[3,1,1]->-0.2617240894084209925142462525438059826587,muI[1,1,2]->0.004762200681503860762322029580601760028529,muI[2,1,2]->-3.193817989703673144780700874265532402648*10^-17,muR[3,1,2]->-0.0005983373536437173781789485152037150222126,muI[1,2,1]->4.429945378767685050400377543859289070580*10^-17,muI[2,2,1]->-0.004762200681507828047370527936250604944070,muR[3,2,1]->-0.0005983373536480765606986459575619320066121,muI[1,2,2]->-0.01513792372166745604436721160005888578342,muI[2,2,2]->0.01513792372166743146761628008183928729019,muR[3,2,2]->0.02863080523873301582947310905875746097219,muR[3,0,0]->0.3410968028924437027538954486657369923134,muI[1,1,0]->0.1386270584339120248167313900794359673898,muI[2,1,0]->0.2772541168678234440780563301479912761683,muR[3,1,0]->0.2617240894084063953218962982625498504226,muI[1,2,0]->0.01513792372167049814272059695462215109190,muI[2,2,0]->0.03027584744334104645304865032955612562773,muR[3,2,0]->0.02863080523873874688956071173570246317793,muI[1,-3,1]->0.001131428270348939223265647378289995823468,muI[2,-3,1]->0.001642209043651538918302692822079869908891,muR[3,-3,1]->-0.001504532985087302529079673369760712165381,muI[1,-2,1]->0.005225706358521713428544392780799330790800,muI[2,-2,1]->0.006662434066320419752093859845060973825605,muR[3,-2,1]->-0.007172829669403144500602304286334630638674,muI[1,-2,2]->0.001796487299652320355103638391128495216681,muI[2,-2,2]->0.001796487299652335766111376238070430980904,muR[3,-2,2]->-0.001585301051028493235122932157488358637359,muI[1,-1,2]->0.006662434066320560854443896596024626682284,muI[2,-1,2]->0.005225706358521858800585019119212838771576,muR[3,-1,2]->-0.007172829669403211220830363426414871847762,muI[1,-1,3]->0.001642209043651543566765402739979403902319,muI[2,-1,3]->0.001131428270348959550905907213694911468994,muR[3,-1,3]->-0.001504532985087298079914722148224320845889,muI[1,0,3]->-0.0009600847257214530785167692369106287390011,muI[2,0,3]->-0.0004800423628607471096087098362543152255219,muR[3,0,3]->0.0003263717752074412036790006293231800310393,muI[1,0,4]->0.0006127202899987506546426270937088889313130,muI[2,0,4]->0.0003063601449993977045363682609484439588639,muR[3,0,4]->-0.0005453433414171574067801520114943596140216,muI[1,1,3]->-0.006662434066321756234985923491006379018274,muI[2,1,3]->-0.001436727707799027643467474102528232009706,muR[3,1,3]->0.007172829669404126037453871067217787181272,muI[1,1,4]->-0.001642209043651310049453839318310568630632,muI[2,1,4]->-0.0005107807733025471376718042177209544001055,muR[3,1,4]->0.001504532985087075554444918842296595956436,muI[1,2,3]->0.005225706358522914751872335652423409438930,muI[2,2,3]->-0.001436727707799000490589011426904145344747,muR[3,2,3]->-0.007172829669404138770416339142954457726194,muI[1,2,4]->0.001796487299651706292631570342765733447214,muI[2,2,4]->1.823196083791282460027613977122176340130*10^-17,muR[3,2,4]->-0.001585301051027928268818849212644298649620,muI[1,3,0]->0.0004800423628610600418502313873038832936430,muI[2,3,0]->0.0009600847257220717201638075368131333388367,muR[3,3,0]->0.0003263717752079354101205649965543547291121,muI[1,3,1]->0.001436727707798960657861389996102811599627,muI[2,3,1]->0.006662434066321207657595203017242259534748,muR[3,3,1]->0.007172829669403709160840441530455576297030,muI[1,3,2]->0.001436727707798888513530125826014614439854,muI[2,3,2]->-0.005225706358522783234180685519505556083581,muR[3,3,2]->-0.007172829669403997288547137770369612540282,muI[1,3,3]->0.0004800423628601414053975262392424981927154,muI[2,3,3]->-0.0004800423628601767092989929422320416464442,muR[3,3,3]->-0.0003263717752065485410227092158849066307528,muI[1,3,4]->-0.001131428270348760943557075809544165519540,muI[2,3,4]->0.0005107807733025191451432832028764990045325,muR[3,3,4]->0.001504532985087038070974481728068003212601,muI[1,4,0]->-0.0003063601449993897467121643650413996264269,muI[2,4,0]->-0.0006127202899987384697147263457132459165505,muR[3,4,0]->-0.0005453433414171268509460835412495791200379,muI[1,4,1]->0.0005107807733025855228657677168187302926955,muI[2,4,1]->0.001642209043651459848873957806902395350187,muR[3,4,1]->0.001504532985087215871519838919659981945026,muI[1,4,2]->-2.411851218851793518337284914406741584546*10^-17,muI[2,4,2]->-0.001796487299651899923100822564558763335774,muR[3,4,2]->-0.001585301051028094618483265782545311141971,muI[1,4,3]->-0.0005107807733025199541854286236273061324515,muI[2,4,3]->0.001131428270348758837731972841797949052753,muR[3,4,3]->0.001504532985087044671015452668747140932147,muI[1,4,4]->0.0003063601449993718319373544458235816904696,muI[2,4,4]->-0.0003063601449993945804767677942417816765380,muR[3,4,4]->-0.0005453433414172112164269438477561300151359,a0->7.490865102144684920802287132672663584506,eta0->1.000000000000000620151190881164982034674,phi0->-2.215990364471313699038906221729998717242*10^-16},Parameters->{b->0.5,xi->0.88,lambda->500,Nx->1/3,Ny->1/3,Nz->1/3,alphaR0->0},DMIType->Bloch,FourierCutoff->4,MagneticRepresentation->SixFold|>
+In[23]:= 
+(* Plot the new SkL configuration *)
+
+SkyrmionConfigurationPlot[equilibrium]
+Out[23]= mz
+
+
+
+In[24]:= dynamics=PrepareMagneticDynamics[equilibrium,"CheckInverse"->True];
+In[25]:= {dynamics["FullDimension"],dynamics["TransverseDimension"]}
+Out[25]= {183,80}
+In[26]:= matrixData=BuildLLDynamicalMatrix[dynamics,{0,0,0}];
+In[27]:= Dimensions[matrixData["DynamicalMatrix"]]
+Out[27]= {80,80}
+In[28]:= modes=SolveMagneticModes[dynamics,{0,0,0},"FrequencyRange"->{0,6}];
+In[29]:= modes["Frequencies"]
+Out[29]= {0.0061466,0.246529,0.678113,1.11922,1.43299,1.90732,2.46492,2.59415,2.81897,3.20156,3.63645,4.17031,4.18052,4.45237,4.50414,4.55241,4.58796,5.09923,5.87532,5.93567}
