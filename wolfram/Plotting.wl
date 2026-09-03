@@ -1,28 +1,16 @@
 (* ================================================================ *)
 (* Plotting.wl                                                      *)
 (*                                                                  *)
-(* Real-space reconstruction and visualization of saved            *)
-(* skyrmion-lattice equilibrium configurations.                     *)
+(* Real-space visualization of equilibrium skyrmion textures and   *)
+(* magnetic magnon eigenfunctions.                                 *)
+(*                                                                  *)
+(* Dependencies:                                                    *)
+(*     Geometry.wl                                                  *)
+(*     FourierBasis.wl                                              *)
+(*     GroundState.wl                                               *)
+(*     DynamicsProjection.wl                                       *)
+(*     DynamicsMagnetic.wl                                         *)
 (* ================================================================ *)
-
-(*
-    Dependencies:
-        Geometry.wl
-        FourierBasis.wl
-        GroundState.wl
-
-    The main plotting routine expects a saved equilibrium Association
-    produced by SaveMagneticEquilibrium and loaded using
-    LoadMagneticEquilibrium.
-
-    Typical workflow:
-
-        equilibrium =
-            LoadMagneticEquilibrium["configuration_name.txt"];
-
-        SkyrmionConfigurationPlot[equilibrium];
-*)
-
 
 ClearAll[
     MagnetizationAffine,
@@ -33,22 +21,23 @@ ClearAll[
     WZC,
 
     SkyrmionConfigurationPlot,
+
+    MagnonEigenfunctionCartesian,
+    MagnonEigenfunctionPlot,
+
     PlottingHelp
 ];
 
-
 (* --------------------------------------------------------------- *)
-(* Real-space magnetization                                       *)
+(* Equilibrium magnetization                                      *)
 (* --------------------------------------------------------------- *)
 
 (*
-    Reconstruct the magnetic field from its Fourier components
-    at affine coordinates (xi1, xi2).
+    Reconstruct the equilibrium magnetization at affine coordinates
+    (xi1,xi2).
 
-    solutionRules must contain both the optimized Fourier
-    coefficients and the fixed physical/lattice parameters.
-
-    The returned components are covariant affine components.
+    The Fourier cutoff and magnetic representation are read directly
+    from the saved equilibrium Association.
 *)
 MagnetizationAffine[
     xi1Coord_,
@@ -73,7 +62,6 @@ MagnetizationAffine[
                 equilibrium
             ];
 
-
         Sum[
             MagneticFourierComponent[
                 n1,
@@ -92,17 +80,9 @@ MagnetizationAffine[
         /. solutionRules
     ];
 
-
 (*
-    Reconstruct the magnetic field in Cartesian components
-    at Cartesian coordinates (x,y).
-
-    The Cartesian position is first transformed to affine
-    coordinates, the Fourier series is reconstructed there,
-    and the resulting field is transformed back to Cartesian
-    components.
-
-    Small numerical imaginary parts are removed using Re and Chop.
+    Reconstruct the equilibrium magnetization in Cartesian components
+    at Cartesian coordinates (x,y), expressed in units of a0.
 *)
 MagnetizationCartesian[
     x_,
@@ -134,7 +114,6 @@ MagnetizationCartesian[
         alphaValue =
             alphaR0 /. solutionRules;
 
-
         xi1Value =
             xi1[
                 x,
@@ -153,14 +132,12 @@ MagnetizationCartesian[
                 alphaValue
             ];
 
-
         mAffine =
             MagnetizationAffine[
                 xi1Value,
                 xi2Value,
                 equilibrium
             ];
-
 
         Chop[
             Re[
@@ -174,16 +151,11 @@ MagnetizationCartesian[
         ]
     ];
 
-
 (* --------------------------------------------------------------- *)
 (* Wigner-Seitz cell                                              *)
 (* --------------------------------------------------------------- *)
 
-(*
-    Return the shortest lattice vectors surrounding the origin.
-    This is an internal helper used to construct the Wigner-Seitz
-    cell.
-*)
+(* Shortest lattice vectors surrounding the origin. *)
 neighborVectors[
     eta_,
     phi_,
@@ -205,11 +177,7 @@ neighborVectors[
         Norm
     ];
 
-
-(*
-    Construct the vertices used to define the Wigner-Seitz cell.
-    Internal helper for WZC.
-*)
+(* Vertices used to construct the Wigner-Seitz cell. *)
 Tpoint[
     eta_,
     phi_,
@@ -236,11 +204,7 @@ Tpoint[
         Last
     ];
 
-
-(*
-    Construct the real-space Wigner-Seitz cell of the magnetic
-    lattice.
-*)
+(* Wigner-Seitz cell of the magnetic lattice. *)
 WZC[
     eta_,
     phi_,
@@ -269,47 +233,30 @@ WZC[
         ]
     ];
 
-
 (* --------------------------------------------------------------- *)
-(* Skyrmion configuration plot                                    *)
+(* Equilibrium configuration plot                                 *)
 (* --------------------------------------------------------------- *)
 
 Options[SkyrmionConfigurationPlot] = {
-
-    (* Overall size of the final figure. *)
     ImageSize -> 600,
-
-    (* Show frame, coordinate labels and physical-parameter title. *)
     "ShowFrameAndLabels" -> True,
-
-    (* Cartesian plotting range around the unit-cell center. *)
+    "ShowTitle" -> True,
     "Range" -> 1.0,
-
-    (* Sampling density of the mz density plot. *)
     "PlotPoints" -> 80,
-
-    (* Sampling density of the in-plane vector field. *)
     "VectorPoints" -> 19
 };
 
-
 (*
-    Plot a saved magnetic equilibrium configuration.
+    Plot a saved equilibrium configuration.
 
-    Input:
-        equilibrium association produced by SaveMagneticEquilibrium and
-        loaded using LoadMagneticEquilibrium.
+    Color:
+        out-of-plane magnetization mz.
 
-    Visualization:
-        - color map: out-of-plane magnetization mz;
-        - arrows: in-plane Cartesian magnetization (mx,my);
-        - dashed line: Wigner-Seitz-cell boundary.
+    Arrows:
+        in-plane Cartesian magnetization (mx,my).
 
-    When "ShowFrameAndLabels" -> True, the plot also displays:
-        - Cartesian coordinate labels;
-        - DMI type;
-        - magnetic field b;
-        - dipolar strength xi.
+    Dashed boundary:
+        Wigner-Seitz cell.
 *)
 SkyrmionConfigurationPlot[
     equilibrium_Association,
@@ -318,36 +265,26 @@ SkyrmionConfigurationPlot[
     Module[
         {
             solutionRules,
-
             dmiType,
             bValue,
             xiValue,
-
             etaValue,
             phiValue,
             alphaValue,
-
             centerX,
             centerY,
-            range,
-
             imageSize,
             showFrameAndLabels,
+            showTitle,
+            range,
             plotPoints,
             vectorPoints,
-
             frameLabels,
             plotTitle,
-
             densityPlot,
             vectorPlot,
             cellBoundary
         },
-
-
-        (* ------------------------------------------------------- *)
-        (* Extract saved equilibrium data                         *)
-        (* ------------------------------------------------------- *)
 
         solutionRules =
             EquilibriumRules[
@@ -363,11 +300,6 @@ SkyrmionConfigurationPlot[
         xiValue =
             xi /. equilibrium["Parameters"];
 
-
-        (* ------------------------------------------------------- *)
-        (* Equilibrium lattice parameters                         *)
-        (* ------------------------------------------------------- *)
-
         etaValue =
             eta0 /. solutionRules;
 
@@ -377,16 +309,15 @@ SkyrmionConfigurationPlot[
         alphaValue =
             alphaR0 /. solutionRules;
 
-
-        (* ------------------------------------------------------- *)
-        (* Plot options                                            *)
-        (* ------------------------------------------------------- *)
-
+        (* Plot options. *)
         imageSize =
             OptionValue[ImageSize];
 
         showFrameAndLabels =
             OptionValue["ShowFrameAndLabels"];
+
+        showTitle =
+            OptionValue["ShowTitle"];
 
         range =
             OptionValue["Range"];
@@ -397,11 +328,7 @@ SkyrmionConfigurationPlot[
         vectorPoints =
             OptionValue["VectorPoints"];
 
-
-        (* ------------------------------------------------------- *)
-        (* Plot center                                             *)
-        (* ------------------------------------------------------- *)
-
+        (* Center the plot around the primitive cell. *)
         centerX =
             x0[
                 etaValue,
@@ -416,11 +343,6 @@ SkyrmionConfigurationPlot[
                 alphaValue
             ];
 
-
-        (* ------------------------------------------------------- *)
-        (* Frame labels and title                                  *)
-        (* ------------------------------------------------------- *)
-
         frameLabels =
             If[
                 showFrameAndLabels,
@@ -428,57 +350,36 @@ SkyrmionConfigurationPlot[
                 None
             ];
 
-
         plotTitle =
             If[
-                showFrameAndLabels,
-
+                showTitle,
                 Style[
                     Row[
                         {
                             dmiType,
                             " DMI   |   ",
                             "b = ",
-                            NumberForm[
-                                N[bValue],
-                                {5, 3}
-                            ],
+                            NumberForm[N[bValue], {5, 3}],
                             "   |   ",
                             "\[Xi] = ",
-                            NumberForm[
-                                N[xiValue],
-                                {5, 3}
-                            ]
+                            NumberForm[N[xiValue], {5, 3}]
                         }
                     ],
-                    16,
+                    15,
                     Bold
                 ],
-
                 None
             ];
 
-
-        (* ------------------------------------------------------- *)
-        (* Out-of-plane magnetization                             *)
-        (* ------------------------------------------------------- *)
-
+        (* Out-of-plane magnetization. *)
         densityPlot =
             DensityPlot[
-                Evaluate[
-                    MagnetizationCartesian[
-                        x,
-                        y,
-                        equilibrium
-                    ][[3]]
-                ],
-
+                MagnetizationCartesian[x, y, equilibrium][[3]],
                 {
                     x,
                     centerX - range,
                     centerX + range
                 },
-
                 {
                     y,
                     centerY - range,
@@ -515,48 +416,37 @@ SkyrmionConfigurationPlot[
                 PlotLegends ->
                     BarLegend[
                         Automatic,
-                        LegendLabel -> "mz"
+                        LegendLabel -> Subscript["m", "z"]
                     ]
             ];
 
 
-        (* ------------------------------------------------------- *)
-        (* In-plane magnetization                                 *)
-        (* ------------------------------------------------------- *)
-
+        (* In-plane magnetization. *)
         vectorPlot =
             VectorPlot[
-                Evaluate[
-                    MagnetizationCartesian[
-                        x,
-                        y,
-                        equilibrium
-                    ][[1 ;; 2]]
-                ],
-
+                MagnetizationCartesian[x, y, equilibrium][[1 ;; 2]],
                 {
                     x,
                     centerX - range,
                     centerX + range
                 },
-
                 {
                     y,
                     centerY - range,
                     centerY + range
                 },
 
-                VectorScale ->
-                    {0.03, Automatic, Automatic},
+                VectorScaling ->
+                    Automatic,
+
+                VectorAspectRatio ->
+                    0.33,
 
                 VectorColorFunction ->
                     None,
 
                 VectorStyle ->
-                    {
-                        GrayLevel[0.2],
-                        Thick
-                    },
+                    {GrayLevel[0.2], Thick},
 
                 VectorPoints ->
                     vectorPoints,
@@ -575,10 +465,7 @@ SkyrmionConfigurationPlot[
             ];
 
 
-        (* ------------------------------------------------------- *)
-        (* Wigner-Seitz-cell boundary                             *)
-        (* ------------------------------------------------------- *)
-
+        (* Wigner-Seitz-cell boundary. *)
         cellBoundary =
             RegionPlot[
                 WZC[
@@ -591,17 +478,9 @@ SkyrmionConfigurationPlot[
                     None,
 
                 BoundaryStyle ->
-                    {
-                        Thick,
-                        Dashed,
-                        Black
-                    }
+                    {Thick, Dashed, Black}
             ];
 
-
-        (* ------------------------------------------------------- *)
-        (* Final combined plot                                     *)
-        (* ------------------------------------------------------- *)
 
         Show[
             densityPlot,
@@ -619,6 +498,685 @@ SkyrmionConfigurationPlot[
         ]
     ];
 
+(* --------------------------------------------------------------- *)
+(* Magnon eigenfunction reconstruction                            *)
+(* --------------------------------------------------------------- *)
+
+MagnonEigenfunctionPlot::mode =
+    "Mode index `1` is invalid. The supplied eigensystem contains `2` positive-frequency modes.";
+
+MagnonEigenfunctionPlot::part =
+    "Unknown plot part `1`. Use \"Real\", \"Imaginary\", or \"Both\".";
+
+(*
+    Reconstruct one normalized magnon eigenfunction in Cartesian
+    components.
+
+    The full eigenvectors returned by SolveMagneticModes are ordered
+    according to dynamicsData["Nodes"] and already contain Cartesian
+    magnetic components.
+
+    Wavevector convention:
+        k is the Cartesian Bloch wavevector stored in modes["WaveVector"].
+
+        For reciprocal node G, the total physical wavevector is
+
+            q = k + G_cart/a0.
+
+    Plotting coordinates (x,y) are expressed in units of a0.
+    Therefore the real-space phase is
+
+        exp[i (a0 k + G_cart) . (x,y,0)].
+
+    At k = 0 this reduces to the expression used in the legacy
+    eigenfunction plots.
+*)
+MagnonEigenfunctionCartesian[
+    x_,
+    y_,
+    dynamicsData_Association,
+    modes_Association,
+    modeIndex_Integer
+] :=
+    Module[
+        {
+            equilibrium,
+            nodes,
+            solutionRules,
+            aValue,
+            etaValue,
+            phiValue,
+            alphaValue,
+            k,
+            modeVector,
+            modeCoefficients,
+            phaseWaveVectors
+        },
+
+        equilibrium =
+            dynamicsData["Equilibrium"];
+
+        nodes =
+            dynamicsData["Nodes"];
+
+        solutionRules =
+            EquilibriumRules[
+                equilibrium
+            ];
+
+        aValue =
+            a0 /. solutionRules;
+
+        etaValue =
+            eta0 /. solutionRules;
+
+        phiValue =
+            phi0 /. solutionRules;
+
+        alphaValue =
+            alphaR0 /. solutionRules;
+
+        k =
+            modes["WaveVector"];
+
+        modeVector =
+            modes["EigenvectorsFull"][[modeIndex]];
+
+        (* One Cartesian 3-vector for every reciprocal-space node. *)
+        modeCoefficients =
+            Partition[
+                modeVector,
+                3
+            ];
+
+        (*
+            Dimensionless wavevectors appropriate for coordinates
+            measured in units of a0.
+        *)
+        phaseWaveVectors =
+            (
+                aValue k
+                +
+                toCRT[G[Sequence @@ #],
+                    etaValue,
+                    phiValue,
+                    alphaValue
+                ]
+            ) & /@ nodes;
+
+        Chop[
+            Total[
+                MapThread[
+                    #1
+                    Exp[
+                        I #2 .
+                        {x, y, 0}
+                    ] &,
+
+                    {
+                        modeCoefficients,
+                        phaseWaveVectors
+                    }
+                ]
+            ]
+        ]
+    ];
+
+(* --------------------------------------------------------------- *)
+(* Magnon eigenfunction plot                                      *)
+(* --------------------------------------------------------------- *)
+
+Options[MagnonEigenfunctionPlot] = {
+
+    ImageSize -> 600,
+
+    (* "Real", "Imaginary", or "Both". *)
+    "Part" -> "Real",
+
+    "ShowFrameAndLabels" -> True,
+
+    "ShowTitle" -> True,
+
+    "Range" -> 0.8,
+
+    "PlotPoints" -> 80,
+
+    "VectorPoints" -> 25,
+
+    (*
+        Maximum absolute value used for the symmetric dm_z color
+        scale. Automatic estimates it numerically over the plot area.
+    *)
+    "ColorMaximum" -> Automatic,
+
+    (* Number of sample points per axis used for Automatic scaling. *)
+    "ColorSamplingPoints" -> 41
+};
+
+(*
+    Plot one normalized magnon eigenfunction.
+
+    Color:
+        real or imaginary part of delta m_z.
+
+    Arrows:
+        corresponding in-plane components
+        (delta m_x, delta m_y).
+
+    "Part" -> "Both" returns real and imaginary panels side-by-side
+    using the same symmetric color scale.
+*)
+MagnonEigenfunctionPlot[
+    dynamicsData_Association,
+    modes_Association,
+    modeIndex_Integer,
+    OptionsPattern[]
+] :=
+    Module[
+        {
+            equilibrium,
+            nodes,
+            solutionRules,
+            dmiType,
+            bValue,
+            xiValue,
+            etaValue,
+            phiValue,
+            alphaValue,
+            aValue,
+            centerX,
+            centerY,
+            k,
+            modeVector,
+            frequencyValue,
+            modeCoefficients,
+            phaseWaveVectors,
+            imageSize,
+            requestedPart,
+            showFrameAndLabels,
+            showTitle,
+            range,
+            plotPoints,
+            vectorPoints,
+            colorMaximum,
+            colorSamplingPoints,
+            frameLabels,
+            xSamples,
+            ySamples,
+            modeField,
+            makeSinglePlot
+        },
+
+        (* Validate mode index before accessing the eigenvector. *)
+        If[
+            modeIndex < 1
+            ||
+            modeIndex > modes["NumberOfModes"],
+
+            Message[
+                MagnonEigenfunctionPlot::mode,
+                modeIndex,
+                modes["NumberOfModes"]
+            ];
+
+            Return[$Failed]
+        ];
+
+
+        requestedPart =
+            OptionValue["Part"];
+
+        If[
+            ! MemberQ[
+                {"Real", "Imaginary", "Both"},
+                requestedPart
+            ],
+
+            Message[
+                MagnonEigenfunctionPlot::part,
+                requestedPart
+            ];
+
+            Return[$Failed]
+        ];
+
+
+        equilibrium =
+            dynamicsData["Equilibrium"];
+
+        nodes =
+            dynamicsData["Nodes"];
+
+        solutionRules =
+            EquilibriumRules[
+                equilibrium
+            ];
+
+
+        (* Physical metadata used in the title. *)
+        dmiType =
+            equilibrium["DMIType"];
+
+        bValue =
+            b /. equilibrium["Parameters"];
+
+        xiValue =
+            xi /. equilibrium["Parameters"];
+
+
+        (* Equilibrium lattice parameters. *)
+        aValue =
+            a0 /. solutionRules;
+
+        etaValue =
+            eta0 /. solutionRules;
+
+        phiValue =
+            phi0 /. solutionRules;
+
+        alphaValue =
+            alphaR0 /. solutionRules;
+
+        centerX =
+            x0[
+                etaValue,
+                phiValue,
+                alphaValue
+            ];
+
+        centerY =
+            y0[
+                etaValue,
+                phiValue,
+                alphaValue
+            ];
+
+        (* Mode data. *)
+        k =
+            modes["WaveVector"];
+
+        modeVector =
+            modes["EigenvectorsFull"][[modeIndex]];
+
+        frequencyValue =
+            modes["Frequencies"][[modeIndex]];
+
+        modeCoefficients =
+            Partition[
+                modeVector,
+                3
+            ];
+
+        (*
+            Because x and y are plotted in units of a0, multiply the
+            Cartesian Bloch wavevector k by a0 before combining it
+            with the dimensionless Cartesian reciprocal vector.
+        *)
+        phaseWaveVectors =
+            (
+                aValue k
+                +
+                toCRT[G[Sequence @@ #],
+                    etaValue,
+                    phiValue,
+                    alphaValue
+                ]
+            ) & /@ nodes;
+
+        (* Plot options. *)
+        imageSize =
+            OptionValue[ImageSize];
+
+        showFrameAndLabels =
+            OptionValue["ShowFrameAndLabels"];
+
+        showTitle =
+            OptionValue["ShowTitle"];
+
+        range =
+            OptionValue["Range"];
+
+        plotPoints =
+            OptionValue["PlotPoints"];
+
+        vectorPoints =
+            OptionValue["VectorPoints"];
+
+        colorMaximum =
+            OptionValue["ColorMaximum"];
+
+        colorSamplingPoints =
+            OptionValue["ColorSamplingPoints"];
+
+        frameLabels =
+            If[
+                showFrameAndLabels,
+                {"x/a0", "y/a0"},
+                None
+            ];
+
+        (*
+            Local numerical reconstruction used repeatedly by
+            DensityPlot and VectorPlot. All mode-dependent quantities
+            have already been extracted, avoiding repeated Association
+            lookups and Fourier-vector construction.
+        *)
+        modeField[
+            xValue_?NumericQ,
+            yValue_?NumericQ
+        ] :=
+            Total[
+                MapThread[
+                    #1
+                    Exp[
+                        I #2 .
+                        {xValue, yValue, 0}
+                    ] &,
+
+                    {
+                        modeCoefficients,
+                        phaseWaveVectors
+                    }
+                ]
+            ];
+
+
+        (* Estimate one common symmetric color scale for Re and Im. *)
+        If[
+            colorMaximum === Automatic,
+
+            xSamples =
+                Subdivide[
+                    centerX - range,
+                    centerX + range,
+                    colorSamplingPoints - 1
+                ];
+
+            ySamples =
+                Subdivide[
+                    centerY - range,
+                    centerY + range,
+                    colorSamplingPoints - 1
+                ];
+
+            colorMaximum =
+                Max[
+                    Flatten[
+                        Table[
+                            Abs[
+                                modeField[xValue, yValue][[3]]
+                            ],
+                            {xValue, xSamples},
+                            {yValue, ySamples}
+                        ]
+                    ]
+                ];
+        ];
+
+
+        (* Avoid a singular color scale for an exactly vanishing mz. *)
+        If[
+            ! NumericQ[colorMaximum]
+            ||
+            colorMaximum <= 0,
+
+            colorMaximum =
+                1;
+        ];
+
+        (*
+            Construct either the real or imaginary eigenfunction
+            panel. Both use the same colorMaximum.
+        *)
+        makeSinglePlot[
+            part_String
+        ] :=
+            Module[
+                {
+                    partFunction,
+                    partLabel,
+                    plotTitle,
+                    colorFunction,
+                    densityPlot,
+                    vectorPlot,
+                    cellBoundary
+                },
+
+                {
+                    partFunction,
+                    partLabel
+                } =
+                    Switch[
+                        part,
+
+                        "Real",
+                        {Re, "Real part"},
+
+                        "Imaginary",
+                        {Im, "Imaginary part"}
+                    ];
+
+                plotTitle =
+                    If[
+                        showTitle,
+                        Style[
+                            Row[
+                                {
+                                    partLabel,
+                                    "   |   Mode ",
+                                    modeIndex,
+                                    "   |   ",
+                                    "\[Omega]/",
+                                    Subscript["\[Omega]", "c2"],
+                                    " = ",
+                                    NumberForm[
+                                        N[frequencyValue],
+                                        {6, 4}
+                                    ],
+                                    "   |   ",
+                                    dmiType,
+                                    " DMI   |   ",
+                                    "b = ",
+                                    NumberForm[
+                                        N[bValue],
+                                        {5, 3}
+                                    ],
+                                    "   |   ",
+                                    "\[Xi] = ",
+                                    NumberForm[
+                                        N[xiValue],
+                                        {5, 3}
+                                    ]
+                                }
+                            ],
+                            14,
+                            Bold
+                        ],
+                        None
+                    ];
+
+                colorFunction =
+                    Function[
+                        value,
+                        ColorData["LightTemperatureMap"][
+                            Clip[
+                                (value / colorMaximum + 1) / 2,
+                                {0, 1}
+                            ]
+                        ]
+                    ];
+
+                densityPlot =
+                    DensityPlot[
+                        partFunction[
+                            modeField[x, y][[3]]
+                        ],
+
+                        {
+                            x,
+                            centerX - range,
+                            centerX + range
+                        },
+
+                        {
+                            y,
+                            centerY - range,
+                            centerY + range
+                        },
+
+                        PlotPoints ->
+                            plotPoints,
+
+                        PlotRange ->
+                            All,
+
+                        ColorFunction ->
+                            colorFunction,
+
+                        ColorFunctionScaling ->
+                            False,
+
+                        AspectRatio ->
+                            1,
+
+                        Frame ->
+                            showFrameAndLabels,
+
+                        FrameLabel ->
+                            frameLabels,
+
+                        LabelStyle ->
+                            16,
+
+                        PlotRangePadding ->
+                            None,
+
+                        PlotLegends ->
+                            BarLegend[
+                                {
+                                    colorFunction,
+                                    {
+                                        -colorMaximum,
+                                        colorMaximum
+                                    }
+                                },
+
+                                LegendLabel -> Subscript["\[Delta]m", "z"]
+                            ]
+                    ];
+
+
+                vectorPlot =
+                    VectorPlot[
+                        partFunction[
+                            modeField[
+                                x,
+                                y
+                            ][[1 ;; 2]]
+                        ],
+
+                        {
+                            x,
+                            centerX - range,
+                            centerX + range
+                        },
+
+                        {
+                            y,
+                            centerY - range,
+                            centerY + range
+                        },
+
+                        VectorScaling ->
+                            Automatic,
+
+                        VectorAspectRatio ->
+                            0.33,
+
+                        VectorColorFunction ->
+                            None,
+
+                        VectorStyle ->
+                            {
+                                GrayLevel[0.25],
+                                Thick
+                            },
+
+                        VectorPoints ->
+                            vectorPoints,
+
+                        Frame ->
+                            showFrameAndLabels,
+
+                        FrameLabel ->
+                            frameLabels,
+
+                        LabelStyle ->
+                            16,
+
+                        PlotRangePadding ->
+                            None
+                    ];
+
+
+                cellBoundary =
+                    RegionPlot[
+                        WZC[
+                            etaValue,
+                            phiValue,
+                            alphaValue
+                        ],
+
+                        PlotStyle ->
+                            None,
+
+                        BoundaryStyle ->
+                            {
+                                Thick,
+                                Dashed,
+                                Black
+                            }
+                    ];
+
+
+                Show[
+                    densityPlot,
+                    vectorPlot,
+                    cellBoundary,
+
+                    Frame ->
+                        showFrameAndLabels,
+
+                    PlotLabel ->
+                        plotTitle,
+
+                    ImageSize ->
+                        imageSize
+                ]
+            ];
+
+
+        Switch[
+            requestedPart,
+
+            "Real",
+            makeSinglePlot["Real"],
+
+            "Imaginary",
+            makeSinglePlot["Imaginary"],
+
+            "Both",
+            GraphicsRow[
+                {
+                    makeSinglePlot["Real"],
+                    makeSinglePlot["Imaginary"]
+                },
+
+                ImageSize ->
+                    2.5 imageSize
+            ]
+        ]
+    ];
 
 (* --------------------------------------------------------------- *)
 (* Help                                                            *)
@@ -627,15 +1185,23 @@ SkyrmionConfigurationPlot[
 PlottingHelp[] :=
     Column[
         {
-            Style["Plotting.wl", Bold, 16],
-            "Real-space reconstruction and visualization of saved magnetic skyrmion-lattice equilibria.",
+            Style[
+                "Plotting.wl",
+                Bold,
+                16
+            ],
+
+            "Real-space visualization of saved skyrmion equilibria and normalized magnetic magnon eigenfunctions.",
+
             Grid[
                 {
                     {"Function", "Description"},
-                    {"MagnetizationAffine", "Reconstruct the magnetization in covariant affine components."},
-                    {"MagnetizationCartesian", "Reconstruct the magnetization in Cartesian components at (x,y)."},
+                    {"MagnetizationAffine", "Reconstruct the saved equilibrium magnetization in affine coordinates."},
+                    {"MagnetizationCartesian", "Reconstruct the saved equilibrium magnetization in Cartesian components."},
                     {"WZC", "Construct the real-space Wigner-Seitz cell."},
-                    {"SkyrmionConfigurationPlot", "Plot a loaded saved equilibrium, including mz, in-plane magnetization and the Wigner-Seitz boundary."},
+                    {"SkyrmionConfigurationPlot", "Plot a saved equilibrium configuration with mz color map and in-plane magnetization arrows."},
+                    {"MagnonEigenfunctionCartesian", "Reconstruct one normalized magnon eigenfunction in Cartesian components, including finite Bloch wavevector k."},
+                    {"MagnonEigenfunctionPlot", "Plot the real, imaginary, or both parts of a magnon eigenfunction with common symmetric color scaling."},
                     {"neighborVectors / Tpoint", "Internal geometric helpers used to construct the Wigner-Seitz cell."}
                 },
                 Frame -> All,
@@ -644,4 +1210,6 @@ PlottingHelp[] :=
         }
     ];
 
-Print[PlottingHelp[]];
+Print[
+    PlottingHelp[]
+];
