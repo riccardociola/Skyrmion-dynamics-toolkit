@@ -1,4 +1,4 @@
-In[1]:= (* ================================================================*)
+(* ================================================================*)
 (* Import wolfram files to compute equilibrium configurations *)
 (* ================================================================*)
 
@@ -63,7 +63,7 @@ SkyrmionConfigurationPlot[equilibrium]
 
 dynamics=PrepareMagneticDynamics[equilibrium,"CheckInverse"->True];
 
-modes=SolveMagneticModes[dynamics,{0,0,0},"FrequencyRange"->{0,6}];
+modes=SolveMagneticModes[dynamics,{0,0,0},"FrequencyRange"->{0,4}];
 
 (*Show low-energy magnon eigenfrequencies*)
 
@@ -242,39 +242,36 @@ modes=SolveMagneticModes[dynamics,{0,0,qz},"FrequencyRange"->{0,6}];
 , {qz, -1, 1, 0.01}];
 In[27]:= ListPlot[Table[Table[{test[[idx, 1]], test[[idx, 2, mode]]}, {idx, 1, Length[test]}], {mode, 1, 10}], PlotRange->{{-1,1}, {0, 3.2}}, Joined->True, PlotStyle->Thick, ImageSize->600]
 Out[27]= 
-In[28]:= Get[FileNameJoin[{NotebookDirectory[],"..","wolfram","ModeAnalysis.wl"}]];
-During evaluation of In[28]:= ModeAnalysis.wl
-Analysis and classification of magnetic magnon eigenmodes. The current version implements dipole-moment classification at k = 0 and is structured for later angular-momentum analysis.
+In[70]:= Get[FileNameJoin[{NotebookDirectory[],"..","wolfram","ModeAnalysis.wl"}]];
+During evaluation of In[70]:= ModeAnalysis.wl
+Analysis and classification of magnetic magnon eigenmodes at k = 0 using dipole moments and C6 rotation symmetry.
 Function	Description
 ModeDipoleMoment	Extract the G = 0 Fourier component of one k = 0 magnon mode and compute its breathing, CW and CCW dipole weights.
-ClassifyDipoleMode	Classify one dipole analysis as Breathing, CW, CCW or DipoleInactive.
+ClassifyDipoleMode	Classify one dipole analysis as Breathing, CW, CCW or Dipole Inactive.
 AnalyzeDipoleModes	Analyze and classify all modes of a k = 0 eigensystem using relative and/or absolute dipole-activity thresholds.
+ModeAngularMomentum	Determine the C6 angular-momentum label m modulo 6 of one k = 0 mode from its real-space rotation symmetry.
+AnalyzeAngularMomentumModes	Apply the C6 angular-momentum classification to every mode of a k = 0 eigensystem.
 
 
 
 
-In[29]:= dipole=ModeDipoleMoment[dynamics,modes,1]
-Out[29]= <|DipoleVector->{2.86925*10^-11-0.00286427 I,-0.00286427+2.25529*10^-11 I,-9.5443*10^-33+8.7371*10^-30 I},Dx->2.86925*10^-11-0.00286427 I,Dy->-0.00286427+2.25529*10^-11 I,Dz->-9.5443*10^-33+8.7371*10^-30 I,CircularPlusAmplitude->4.34135*10^-12-0.00405068 I,CircularMinusAmplitude->3.62359*10^-11-8.64626*10^-12 I,CWAmplitude->4.34135*10^-12-0.00405068 I,CCWAmplitude->3.62359*10^-11-8.64626*10^-12 I,BreathingWeight->7.63371*10^-59,CWWeight->0.000016408,CCWWeight->1.3878*10^-21,TotalDipoleWeight->0.000016408,TimeConvention->Exp[-Iomega t]|>
-In[47]:= Grid[Prepend[Table[{mode["ModeIndex"],NumberForm[N[mode["Frequency"]],{6,4}],ScientificForm[N[mode["Dipole"]["BreathingWeight"]]],ScientificForm[N[mode["Dipole"]["CWWeight"]]],ScientificForm[N[mode["Dipole"]["CCWWeight"]]],mode["DipoleClassification"]},{mode,analysis["Modes"]}],{"Mode","\[Omega]/\[Omega]c2","Breathing","CW","CCW","Classification"}],Frame->All,Alignment->Center]
-Out[47]= Mode	\[Omega]/\[Omega]c2	Breathing	CW	CCW	Classification
-1	0.0061	7.63371*10^(-59)	1.6408*10^(-5)	1.3878*10^(-21)	CW
-2	0.2465	2.23057*10^(-23)	1.07266*10^(-48)	1.70675*10^(-61)	DipoleInactive
-3	0.6781	5.05945*10^(-50)	1.47818*10^(-24)	2.00486*10^(-23)	DipoleInactive
-4	1.1192	1.53408*10^(-62)	8.31668*10^(-22)	4.98239*10^(-1)	CCW
-5	1.4330	1.04499*10^(-23)	3.66012*10^(-42)	2.99702*10^(-61)	DipoleInactive
-6	1.9073	4.41593*10^(-1)	3.47824*10^(-42)	2.20586*10^(-61)	Breathing
-7	2.4649	2.01514*10^(-60)	1.60311*10^(-1)	3.29074*10^(-22)	CW
-8	2.5942	3.53419*10^(-63)	1.12814*10^(-22)	4.7019*10^(-6)	CCW
-9	2.8190	2.39873*10^(-23)	6.89501*10^(-53)	6.52802*10^(-60)	DipoleInactive
-10	3.2016	3.1407*10^(-51)	6.86111*10^(-24)	9.17874*10^(-23)	DipoleInactive
-11	3.6364	2.78929*10^(-24)	8.7174*10^(-42)	6.05022*10^(-61)	DipoleInactive
-12	4.1703	9.24272*10^(-5)	2.22389*10^(-43)	1.79363*10^(-62)	Breathing
-13	4.1805	1.91731*10^(-62)	8.67722*10^(-24)	3.4013*10^(-3)	CCW
-14	4.4524	3.10482*10^(-23)	8.30762*10^(-49)	2.29055*10^(-61)	DipoleInactive
-15	4.5041	2.30508*10^(-4)	6.16006*10^(-43)	6.07827*10^(-62)	Breathing
-16	4.5524	1.18366*10^(-59)	3.59156*10^(-4)	3.4681*10^(-23)	CW
-17	4.5880	4.66738*10^(-50)	4.59163*10^(-25)	7.65745*10^(-23)	DipoleInactive
-18	5.0992	1.44548*10^(-25)	5.4863*10^(-42)	4.70266*10^(-61)	DipoleInactive
-19	5.8753	1.25661*10^(-62)	8.6178*10^(-24)	2.57531*10^(-4)	CCW
-20	5.9357	6.08542*10^(-59)	4.22581*10^(-6)	6.44572*10^(-22)	CW
+In[71]:= modes=SolveMagneticModes[dynamics,{0,0,0},"FrequencyRange"->{0,4}];
+In[72]:= dipole=ModeDipoleMoment[dynamics,modes,4]
+Out[72]= <|DipoleVector->{2.71036*10^-11-0.499119 I,0.499119 -1.25447*10^-11 I,-3.35018*10^-32+1.19241*10^-31 I},Dx->2.71036*10^-11-0.499119 I,Dy->0.499119 -1.25447*10^-11 I,Dz->-3.35018*10^-32+1.19241*10^-31 I,CircularPlusAmplitude->2.80356*10^-11+6.75827*10^-12 I,CircularMinusAmplitude->1.02948*10^-11-0.705861 I,CWAmplitude->2.80356*10^-11+6.75827*10^-12 I,CCWAmplitude->1.02948*10^-11-0.705861 I,BreathingWeight->1.53408*10^-62,CWWeight->8.31668*10^-22,CCWWeight->0.498239,TotalDipoleWeight->0.498239,TimeConvention->Exp[-Iomega t]|>
+In[73]:= analysis=AnalyzeDipoleModes[dynamics,modes];
+
+angularAnalysis=AnalyzeAngularMomentumModes[dynamics,modes];
+In[75]:= Grid[Prepend[Table[{analysis["Modes"][[i]]["ModeIndex"],NumberForm[N[analysis["Modes"][[i]]["Frequency"]],{6,4}],ScientificForm[N[analysis["Modes"][[i]]["Dipole"]["BreathingWeight"]]],ScientificForm[N[analysis["Modes"][[i]]["Dipole"]["CWWeight"]]],ScientificForm[N[analysis["Modes"][[i]]["Dipole"]["CCWWeight"]]],analysis["Modes"][[i]]["DipoleClassification"],angularAnalysis["Modes"][[i]]["AngularMomentumClassification"],ScientificForm[N[angularAnalysis["Modes"][[i]]["AngularMomentum"]["BestResidual"]]]},{i,Length[analysis["Modes"]]}],{"Mode","\[Omega]/\[Omega]c2","Breathing","CW","CCW","Classification","m (mod 6)","C6 residual"}],Frame->All,Alignment->Center]
+Out[75]= Mode	\[Omega]/\[Omega]c2	Breathing	CW	CCW	Classification	m (mod 6)	C6 residual
+1	0.0061	7.63371*10^(-59)	1.6408*10^(-5)	1.3878*10^(-21)	CW	1	7.82708*10^(-11)
+2	0.2465	2.23057*10^(-23)	1.07266*10^(-48)	1.70675*10^(-61)	Dipole Inactive	2	2.72475*10^(-11)
+3	0.6781	5.05945*10^(-50)	1.47818*10^(-24)	2.00486*10^(-23)	Dipole Inactive	3	5.19455*10^(-11)
+4	1.1192	1.53408*10^(-62)	8.31668*10^(-22)	4.98239*10^(-1)	CCW	-1	1.02993*10^(-10)
+5	1.4330	1.04499*10^(-23)	3.66012*10^(-42)	2.99702*10^(-61)	Dipole Inactive	-2	1.37619*10^(-11)
+6	1.9073	4.41593*10^(-1)	3.47824*10^(-42)	2.20586*10^(-61)	Breathing	0	2.44041*10^(-11)
+7	2.4649	2.01514*10^(-60)	1.60311*10^(-1)	3.29074*10^(-22)	CW	1	6.46804*10^(-11)
+8	2.5942	3.53419*10^(-63)	1.12814*10^(-22)	4.7019*10^(-6)	CCW	-1	6.26298*10^(-11)
+9	2.8190	2.39873*10^(-23)	6.89501*10^(-53)	6.52802*10^(-60)	Dipole Inactive	2	5.54418*10^(-11)
+10	3.2016	3.1407*10^(-51)	6.86111*10^(-24)	9.17874*10^(-23)	Dipole Inactive	3	1.28862*10^(-10)
+11	3.6364	2.78929*10^(-24)	8.7174*10^(-42)	6.05022*10^(-61)	Dipole Inactive	-2	8.21583*10^(-12)
 
