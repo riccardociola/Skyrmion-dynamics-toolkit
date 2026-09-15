@@ -1,254 +1,280 @@
-Print[ OutputForm["Import and test Geomtry.wl"] ];
+In[1]:= (* ================================================================*)
+(* Import wolfram files to compute equilibrium configurations *)
+(* ================================================================*)
 
-Get[
-    FileNameJoin[
-        {NotebookDirectory[], "..", "wolfram", "Geometry.wl"}
-    ]
-];
+Get[FileNameJoin[{NotebookDirectory[],"..","wolfram","Geometry.wl"}]];
+Get[FileNameJoin[{NotebookDirectory[],"..","wolfram","FourierBasis.wl"}]];
+Get[FileNameJoin[{NotebookDirectory[],"..","wolfram","EnergyMagnetic.wl"}]];
+Get[FileNameJoin[{NotebookDirectory[],"..","wolfram","BuildEnergy.wl"}]];
+Get[FileNameJoin[{NotebookDirectory[],"..","wolfram","GroundState.wl"}]];
+Get[FileNameJoin[{NotebookDirectory[],"..","wolfram","Plotting.wl"}]];
 
-Vpuc[1, 0, 0]
-(* expected: Sqrt[3]/2 *)
+(* ================================================================*)
+(* Equilibrium configurations for magnetic SkL *)
+(* ================================================================*)
 
-FullSimplify[
-    ee[\[Eta], \[CurlyPhi], \[Alpha]R] . Transpose[EE[\[Eta], \[CurlyPhi], \[Alpha]R]]
-]
-(* expected: IdentityMatrix[3] *)
+(*Build energy functional*)
 
-Print[ OutputForm["Import and test FourierBasis.wl"] ];
+emag=BuildMagneticEnergy[2,"Bloch"];
 
-Get[
-    FileNameJoin[
-        {NotebookDirectory[], "..", "wolfram", "FourierBasis.wl"}
-    ]
-];
+(*Load initial state*)
 
-Print[ OutputForm["-> Configure a 6-fold magnetic lattice"] ];
+initialState=LoadMagneticEquilibrium["Bloch_N2_b0.5_xi0.88_Nz0.333333.txt"]
 
-ConfigureFourierBasis[2, "SixFold"];
-(* corresponding to NN=2 and a reduced six-fold symmetric example *)
+(*Calculate a new SkL configuration and save it*)
 
-M[1, 0]//MatrixForm
-M[-1, 0]//MatrixForm
-M[0, 0]//MatrixForm
+parameters={b->0.45,xi->0.88,lambda->500,Nx->1/3,Ny->1/3,Nz->1/3,alphaR0->0};
 
-independentNodes[2]
+result=FindMagneticEquilibrium[emag,parameters,EquilibriumAnsatz[initialState],"Save"->True,"DMIType"->"Bloch"];
 
-Length[MagneticVariables[2, "SixFold"]]
+(*Plot the new SkL configuration*)
 
-Print[ OutputForm["-> Configure a general magnetic and lattice"] ];
+SkyrmionConfigurationPlot[LoadMagneticEquilibrium["Bloch_N2_b0.45_xi0.88_Nz0.333333.txt"]]
 
-ConfigureFourierBasis[2, "General"];
-(* corresponding to NN=2 and a reduced six-fold symmetric example *)
+(*Calculate a field sweep*)
 
-M[1, 0]//MatrixForm
-M[-1, 0]//MatrixForm
-M[0, 0]//MatrixForm
-U[1, 0]//MatrixForm
-U[-1, 0]//MatrixForm
-U[0, 0]//MatrixForm
+fieldSweep=ParameterSweep[emag,"Bloch",{xi->0.88,lambda->500,Nx->1/3,Ny->1/3,Nz->1/3,alphaR0->0},b,Range[0.5,0.3,-0.025],EquilibriumAnsatz[LoadMagneticEquilibrium["Bloch_N2_b0.5_xi0.88_Nz0.333333.txt"]]];
 
-independentNodes[2]
+SkyrmionConfigurationPlot[LoadMagneticEquilibrium["Bloch_N2_b0.3_xi0.88_Nz0.333333.txt"],PlotPoints->150,ImageSize->550,Range->0.8]
 
-Length[MagneticVariables[2, "General"]]
+(*Plot parameters over field sweep range*)
 
-Print[ OutputForm["-> Test the magnetic energy functions for the hexagonal SkL"] ];
+ListPlot[Table[{b,LoadMagneticEquilibrium["Bloch_N2_b"<>ToString[b]<>"_xi0.88_Nz0.333333.txt"][[1]]},{b,0.3,0.7,0.025}]]
+ListPlot[Table[{b,a0/.LoadMagneticEquilibrium["Bloch_N2_b"<>ToString[b]<>"_xi0.88_Nz0.333333.txt"][[2]]},{b,0.3,0.7,0.025}]]
 
-Get[
-    FileNameJoin[
-        {NotebookDirectory[], "..", "wolfram", "EnergyMagnetic.wl"}
-    ]
-];
+(* ================================================================*)
+(*Import wolfram files to compute magnon dynamics*)
+(* ================================================================*)
 
-ConfigureFourierBasis[1, "SixFold"];
+Get[FileNameJoin[{NotebookDirectory[],"..","wolfram","DynamicsProjection.wl"}]];
+Get[FileNameJoin[{NotebookDirectory[],"..","wolfram","DynamicsMagnetic.wl"}]];
 
-Print[ OutputForm["Exchange energy :"] ];
-ExchangeEnergy[a, eta, phi, alphaR]
-Print[ OutputForm["Bloch DMI energy :"] ];
-BlochDMIEnergy[a, eta, phi, alphaR]
-Print[ OutputForm["Zeeman energy :"] ];
-ZeemanEnergy[b]
+(* ================================================================*)
+(*Calculate magnon dynamics with linearised LL equation*)
+(* ================================================================*)
 
-Nij = DiagonalMatrix[{1 / 3, 1 / 3, 1 / 3}];
+equilibrium=LoadMagneticEquilibrium["Bloch_N4_b0.5_xi0.88_Nz0.333333.txt"]
 
-Print[ OutputForm["Dipolar energy :"] ];
-MagnetostaticInfiniteEnergy[
-    xi,
-    Nij,
-    eta,
-    phi,
-    alphaR
-]
+(*Plot the SkL configuration*)
 
-Print[ OutputForm["Constraint energy :"] ];
-ConstraintEnergy[
-    lambda,
-    eta,
-    phi,
-    alphaR
-]
+SkyrmionConfigurationPlot[equilibrium]
 
-Print[ OutputForm["-> Test BuildEnergy.wl"] ];
+(*Calculate magnon dynamics*)
 
-Get[
-    FileNameJoin[
-        {NotebookDirectory[], "..", "wolfram", "BuildEnergy.wl"}
-    ]
-];
+dynamics=PrepareMagneticDynamics[equilibrium,"CheckInverse"->True];
 
-emag = BuildMagneticEnergy[1, "Bloch"];
+modes=SolveMagneticModes[dynamics,{0,0,0},"FrequencyRange"->{0,6}];
 
-emag = BuildMagneticEnergy[1, "Bloch"];
+(*Show low-energy magnon eigenfrequencies*)
 
-Print[ OutputForm["-> Test minimisation routing in GroundState.wl"] ];
+modes["Frequencies"]
 
-Get[
-    FileNameJoin[
-        {NotebookDirectory[], "..", "wolfram", "GroundState.wl"}
-    ]
-];
+(*Plot real and imaginary parts of the magnon eigenfunction*)
 
-emag =
-    BuildMagneticEnergy[
-        2,
-        "Bloch"
-    ];
+MagnonEigenfunctionPlot[dynamics,modes,4,"Part"->"Both",ImageSize->600]
+During evaluation of In[1]:= Geometry.wl
+Affine geometry, reciprocal-lattice tools and coordinate transformations.
+Function	Description
+ee / EE	Return the affine basis and dual basis vectors.
+metric / dualMetric	Return the affine metric and inverse metric tensors.
+Vpuc	Return the primitive unit-cell area.
+xi1 / xi2	Convert Cartesian coordinates to affine coordinates.
+X / Y	Convert affine coordinates to Cartesian coordinates.
+DotC / DotCn	Scalar products for covariant / contravariant affine components.
+G / Gc	Return reciprocal-lattice vectors in affine components.
+toCRT / toCRTc	Convert affine vector components to Cartesian components.
+toAff / toAffc	Convert Cartesian vector components to affine components.
+FT	Numerically compute a Fourier coefficient over one primitive cell.
 
-parameterRules = {
-    b -> 0.5,
-    xi -> 0.88,
-    lambda -> 500,
 
-    Nx -> 1 / 3,
-    Ny -> 1 / 3,
-    Nz -> 1 / 3,
 
-    alphaR0 -> 0
-};
 
-initialValues = {
+During evaluation of In[1]:= FourierBasis.wl
+Fourier-space field representations, reciprocal-space cutoff and reality constraints.
+Function	Description
+ConfigureFourierBasis	Set the reciprocal cutoff and magnetic representation (SixFold or General).
+M	Return the active magnetic Fourier component M[n1,n2].
+U	Return the elastic displacement Fourier component U[n1,n2].
+MagneticVariables	Return the independent magnetic optimization variables.
+ElasticVariables	Return the independent elastic optimization variables.
+independentNodes	Return the independent reciprocal-space nodes inside the hexagonal cutoff.
+hexagonNodeQ	Test whether a reciprocal node lies inside the finite hexagonal cutoff.
 
-    (* n = (-1,1) *)
-    {muI[1, -1, 1],  0.029},
-    {muI[2, -1, 1],  0.029},
-    {muR[3, -1, 1], -0.034},
 
-    (* n = (0,1) *)
-    {muI[1, 0, 1], -0.310},
-    {muI[2, 0, 1], -0.155},
-    {muR[3, 0, 1],  0.265},
 
-    (* n = (0,2) *)
-    {muI[1, 0, 2],  0.0055},
-    {muI[2, 0, 2],  0.0028},
-    {muR[3, 0, 2], -0.0043},
 
-    (* n = (1,1) *)
-    {muI[1, 1, 1],  0.126},
-    {muI[2, 1, 1], -0.137},
-    {muR[3, 1, 1], -0.216},
+During evaluation of In[1]:= EnergyMagnetic.wl
+Magnetic contributions to the dimensionless free-energy functional.
+Function	Description
+ExchangeEnergy	Exchange contribution.
+BlochDMIEnergy	Bulk/Bloch DMI contribution.
+NeelDMIEnergy	Interfacial/Neel DMI contribution.
+AntiDMIEnergy	DMI contribution supporting antiskyrmions.
+ZeemanEnergy	Zeeman coupling to a field along z.
+MagnetostaticInfiniteEnergy	Magnetostatic energy for an extended sample with a Cartesian demagnetization tensor.
+MagnetostaticFilmEnergy	Magnetostatic energy for a film of finite thickness.
+MagnetostaticPeriodicEnergy	Magnetostatic energy for an infinite periodic multilayer.
+ConstraintEnergy	Quartic penalty enforcing the fixed magnetization length.
 
-    (* n = (1,2) *)
-    {muI[1, 1, 2], -0.029},
-    {muI[2, 1, 2], -0.0003},
-    {muR[3, 1, 2],  0.034},
 
-    (* n = (2,1) *)
-    {muI[1, 2, 1],  0.0},
-    {muI[2, 2, 1], -0.030},
-    {muR[3, 2, 1], -0.015},
 
-    (* n = (2,2) *)
-    {muI[1, 2, 2], -0.015},
-    {muI[2, 2, 2], -0.0006},
-    {muR[3, 2, 2],  0.017},
 
-    (* Uniform component *)
-    {muR[3, 0, 0], 0.44},
+During evaluation of In[1]:= BuildEnergy.wl
+Assembly, symbolic simplification and caching of magnetic energy functionals.
+Function	Description
+BuildMagneticEnergy	Build or load a cached SixFold magnetic energy for a chosen cutoff and DMI type.
+MagneticEnergyCacheFile	Return the cache path for a magnetic energy with a given cutoff and DMI type.
 
-    (* n = (1,0) *)
-    {muI[1, 1, 0], 0.126},
-    {muI[2, 1, 0], 0.263},
-    {muR[3, 1, 0], 0.216},
 
-    (* n = (2,0) *)
-    {muI[1, 2, 0], 0.015},
-    {muI[2, 2, 0], 0.014},
-    {muR[3, 2, 0], 0.017},
 
-    (* Lattice parameters *)
-    {a0,   7.5},
-    {eta0, 1.0},
-    {phi0, 0.0}
-};
 
-result =
-    FindMagneticEquilibrium[
-        emag,
-        parameterRules,
-        initialValues
-    ];
+During evaluation of In[1]:= GroundState.wl
+Ground-state minimization, equilibrium storage, loading and parameter continuation.
+Function	Description
+FindMagneticEquilibrium	Minimize the energy for fixed physical parameters and an initial ansatz.
+SaveMagneticEquilibrium	Save an equilibrium configuration and metadata to results/equilibria.
+LoadMagneticEquilibrium	Load a saved equilibrium by file name or by model parameters.
+EquilibriumRules	Combine optimized variables and fixed parameters, e.g. for plotting.
+EquilibriumAnsatz	Convert a compatible saved equilibrium into a FindMinimum ansatz.
+ParameterSweep	Follow a metastable equilibrium branch while varying one parameter.
+EquilibriumExistsQ	Check whether the expected equilibrium file already exists.
 
-Print[ OutputForm["Minimisation finished!! The energy is :"] ];
 
-result[[1]]
 
-SaveMagneticEquilibrium[
-    result,
-    parameterRules,
-    "Bloch"
-];
 
-Print[ OutputForm["Configuration saved!"] ];
+During evaluation of In[1]:= Plotting.wl
+Real-space visualization of saved skyrmion equilibria and normalized magnetic magnon eigenfunctions.
+Function	Description
+MagnetizationAffine	Reconstruct the saved equilibrium magnetization in affine coordinates.
+MagnetizationCartesian	Reconstruct the saved equilibrium magnetization in Cartesian components.
+WZC	Construct the real-space Wigner-Seitz cell.
+SkyrmionConfigurationPlot	Plot a saved equilibrium configuration with mz color map and in-plane magnetization arrows.
+MagnonEigenfunctionCartesian	Reconstruct one normalized magnon eigenfunction in Cartesian components, including finite Bloch wavevector k.
+MagnonEigenfunctionPlot	Plot the real, imaginary, or both parts of a magnon eigenfunction with common symmetric color scaling.
+neighborVectors / Tpoint	Internal geometric helpers used to construct the Wigner-Seitz cell.
 
-Print[ OutputForm["-> Now  let's plot the solution with Plotting.wl"] ];
 
-Get[
-    FileNameJoin[
-        {NotebookDirectory[], "..", "wolfram", "Plotting.wl"}
-    ]
-];
 
-gsRules =
-    Join[
-        result[[2]],
-        parameterRules
-    ];
 
-SkyrmionConfigurationPlot[
-    gsRules
-]
+During evaluation of In[1]:= Loading cached magnetic energy: C:\Users\ricca\Desktop\Git_project\skyrmion-dynamics-toolkit\cache\energies\magnetic_bloch_N2.txt
+Out[8]= <|Energy->-0.5598587746603767130910170328236906211560,Solution->{muI[1,-1,1]->-0.01022143506265785811055671777825686102768,muI[2,-1,1]->-0.01022143506265785812215532358837994040650,muR[3,-1,1]->-0.001118984545690184560799237139696277103248,muI[1,0,1]->-0.2890037668843387440128320554924441593794,muI[2,0,1]->-0.1445018834421693719977074428791904871126,muR[3,0,1]->0.2493783829785044608880492029153079387350,muI[1,0,2]->-0.02352059533993850491231142761791127112108,muI[2,0,2]->-0.01176029766996925244914550469373494431737,muR[3,0,2]->0.02660371972141250919252316589857890654931,muI[1,1,1]->0.1445018834421693718034314147909994842031,muI[2,1,1]->-0.1445018834421693717060604029239961181407,muR[3,1,1]->-0.2493783829785044605245206416289055159645,muI[1,1,2]->0.01022143506265785804035485232470746070270,muI[2,1,2]->-1.004486880074769489955260721195030671542*10^-20,muR[3,1,2]->0.001118984545690184623278607170718394409731,muI[1,2,1]->-1.870215518350901286344951001280856777861*10^-21,muI[2,2,1]->-0.01022143506265785852391615009426321492011,muR[3,2,1]->0.001118984545690184197354706054074541372609,muI[1,2,2]->-0.01176029766996925255769679091267924655919,muI[2,2,2]->0.01176029766996925247080612279715960104660,muR[3,2,2]->0.02660371972141250931643927532982838845657,muR[3,0,0]->0.3431977072607554777752022189471259041646,muI[1,1,0]->0.1445018834421693717499679382625961408944,muI[2,1,0]->0.2890037668843387434206954905696100662649,muR[3,1,0]->0.2493783829785044604620203717518359923073,muI[1,2,0]->0.01176029766996925256132240941408776131048,muI[2,2,0]->0.02352059533993850504976339554492716868228,muR[3,2,0]->0.02660371972141250933922975879709518720810,a0->7.481789241990172996380563065704271152982,eta0->0.9999999999999999997844101546833949087572,phi0->-7.936171036361479628227569804817214795308*10^-20},Parameters->{b->0.5,xi->0.88,lambda->500,Nx->1/3,Ny->1/3,Nz->1/3,alphaR0->0},DMIType->Bloch,FourierCutoff->2,MagneticRepresentation->SixFold|>
+During evaluation of In[1]:= FindMinimum::precw: The precision of the argument function (-0.45 muR[3, 0, 0] + <<3>> - Divide[(2 I) ((8 I) Pi muI[1, -1, 1] muR[3, -1, 1] + (8 I) Pi muI[2, -1, 1] muR[3, -1, 1] + (8 I) Pi muI[1, 0, 1] muR[3, 0, 1] + <<9>> + (16 I) Pi <<1>> muR[<<3>>] - (16 I) Pi muI[2, 2, 2] muR[3, 2, 2]), <<1>>]) is less than WorkingPrecision (40.`).
+During evaluation of In[1]:= {7.495519145555829139562891742056051914329,0.9999999999999999994139419797946326898109,-6.001103203051045589476580806263752030439*10^-19,0}
+During evaluation of In[1]:= {7.511513147643348528402791004020502480120,0.9986811661840493966634017072146128074457,-0.0006407694333614206863649070974483395793998,0}
+During evaluation of In[1]:= {7.509578522101158706517481176509930593567,1.000019061734391810839309433036196450339,-0.00003336538712444631318356619058633811882116,0}
+During evaluation of In[1]:= {7.510336040948023427445908903473099687401,0.9999851119461728470077750204654376580812,-0.00001269647229807401114625102617120079249024,0}
+During evaluation of In[1]:= {7.510272449729250922759721624929125733166,0.9999999154277021655235916983240383118389,-1.018278343506103694921571470293638606159*10^-7,0}
+During evaluation of In[1]:= {7.510271934559924859469194304126328920099,0.9999999999928803178690342066558945710756,-7.258857302028892752153133783044897691875*10^-12,0}
+During evaluation of In[1]:= {7.510271934519444111480318544510255670306,0.9999999999999999999462483301927419454338,-5.825484354203240923401853596388376393850*10^-20,0}
+During evaluation of In[1]:= Equilibrium configuration saved to: C:\Users\ricca\Desktop\Git_project\skyrmion-dynamics-toolkit\results\equilibria\Bloch_N2_b0.45_xi0.88_Nz0.333333.txt
+Out[11]= Subscript[m, z]
 
-SkyrmionConfigurationPlot[
-     gsRules,
-    ShowFrameAndLabels -> False,
-    ImageSize -> 300,
-    Range -> 3
- ]
 
-Print[ OutputForm["-> Test loading functionality inside GroundState.wl"] ];
 
- saved =
-    LoadMagneticEquilibrium[
-        "Bloch_N2_b0.5_xi0.88_Nz0.333333.txt"
-    ];
+During evaluation of In[1]:= b = 0.5
+During evaluation of In[1]:= Existing equilibrium found. Loading...
+During evaluation of In[1]:= b = 0.475
+During evaluation of In[1]:= Existing equilibrium found. Loading...
+During evaluation of In[1]:= b = 0.45
+During evaluation of In[1]:= Existing equilibrium found. Loading...
+During evaluation of In[1]:= b = 0.425
+During evaluation of In[1]:= Existing equilibrium found. Loading...
+During evaluation of In[1]:= b = 0.4
+During evaluation of In[1]:= Existing equilibrium found. Loading...
+During evaluation of In[1]:= b = 0.375
+During evaluation of In[1]:= Existing equilibrium found. Loading...
+During evaluation of In[1]:= b = 0.35
+During evaluation of In[1]:= Existing equilibrium found. Loading...
+During evaluation of In[1]:= b = 0.325
+During evaluation of In[1]:= Existing equilibrium found. Loading...
+During evaluation of In[1]:= b = 0.3
+During evaluation of In[1]:= Existing equilibrium found. Loading...
+Out[13]= Subscript[m, z]
 
-Print[ OutputForm["The configuration was succesfully loaded!"] ];
 
-Print[ OutputForm["-> Now let's test a field sweep"] ];
 
-fieldSweep =
-    ParameterSweep[
-        emag,
-        "Bloch",
-        {
-            xi -> 0.88,
-            lambda -> 500,
-            Nx -> 1/3,
-            Ny -> 1/3,
-            Nz -> 1/3,
-            alphaR0 -> 0
-        },
-        b,
-        Range[0.5, 0.7, 0.025],
-        initialValues
-    ];
+Out[14]= 
+Out[15]= 
+During evaluation of In[1]:= DynamicsProjection.wl
+Common reciprocal-space and transverse-projection tools for magnetic and magnetoelastic dynamics.
+Function	Description
+DynamicsNodes	Return all reciprocal-lattice nodes inside the dynamical hexagonal cutoff.
+EquilibriumMagnetization	Return a Fourier component of a saved equilibrium magnetization.
+CrossProductMatrix	Return the Cartesian matrix representing m x v.
+BuildM0CrossOperator	Construct the full Fourier-space M0 x operator.
+BuildMagneticTransverseBasis	Construct the well-resolved transverse magnetic basis, projected M0 x operator and verified inverse.
+ProjectMagneticVector	Project a full magnetic fluctuation vector onto the transverse basis.
+LiftMagneticVector	Lift a transverse magnetic vector back to the full Fourier space.
+ProjectMagneticOperator	Project a magnetic operator onto the transverse magnetic subspace.
+
+
+
+
+During evaluation of In[1]:= DynamicsMagnetic.wl
+Analytical magnetic Hessian construction and linearized Landau-Lifshitz dynamics around a saved equilibrium.
+Function	Description
+BlochDMIHessianBlock	Return the Cartesian Bloch-DMI Hessian block for one wavevector.
+MagneticQuadraticBlock	Return the 3 x 3 quadratic magnetic Hessian block including exchange, DMI, dipolar and constraint terms.
+BuildMagneticQuadraticHessian	Construct the reciprocal-node-diagonal contribution H_k.
+BuildConstraintHessian	Construct the texture-dependent convolution contribution H_e from the quartic constraint.
+BuildMagneticHessian	Assemble the full magnetic Hessian for a chosen Bloch wavevector.
+BuildProjectedMagneticHessian	Construct the magnetic Hessian directly in the transverse basis, reusing the projected k-independent contribution.
+PrepareMagneticDynamics	Precompute the k-independent projection and Hessian data for one equilibrium.
+BuildLLDynamicalMatrix	Project the Hessian and construct the linearized LL dynamical matrix.
+MagneticBdGInnerProduct / MagneticBdGNorm	Evaluate the magnetic BdG inner product and norm in the transverse basis.
+NormalizeMagneticMode	Normalize one transverse magnetic eigenvector using the BdG norm.
+SolveMagneticModes	Diagonalize the LL matrix and return positive-frequency normalized magnon modes.
+
+
+
+
+Out[18]= <|Energy->-0.5698190776619686569828571635937844046139,Solution->{muI[1,-1,1]->-0.004762200681515820375774298054344670651114,muI[2,-1,1]->-0.004762200681515844873672821930929162655568,muR[3,-1,1]->0.0005983373536567941132905563969510685584411,muI[1,0,1]->-0.2772541168678285804582324201381165035722,muI[2,0,1]->-0.1386270584339147896559459512958517672591,muR[3,0,1]->0.2617240894084111747388635055817605865998,muI[1,0,2]->-0.03027584744333915713550321291829359582790,muI[2,0,2]->-0.01513792372166958078436672235986797144776,muR[3,0,2]->0.02863080523873700373215796292676510122595,muI[1,1,1]->0.1386270584339193815072370323866329370434,muI[2,1,1]->-0.1386270584339201074504263530143728733572,muR[3,1,1]->-0.2617240894084209925142462525438059826587,muI[1,1,2]->0.004762200681503860762322029580601760028529,muI[2,1,2]->-3.193817989703673144780700874265532402648*10^-17,muR[3,1,2]->-0.0005983373536437173781789485152037150222126,muI[1,2,1]->4.429945378767685050400377543859289070580*10^-17,muI[2,2,1]->-0.004762200681507828047370527936250604944070,muR[3,2,1]->-0.0005983373536480765606986459575619320066121,muI[1,2,2]->-0.01513792372166745604436721160005888578342,muI[2,2,2]->0.01513792372166743146761628008183928729019,muR[3,2,2]->0.02863080523873301582947310905875746097219,muR[3,0,0]->0.3410968028924437027538954486657369923134,muI[1,1,0]->0.1386270584339120248167313900794359673898,muI[2,1,0]->0.2772541168678234440780563301479912761683,muR[3,1,0]->0.2617240894084063953218962982625498504226,muI[1,2,0]->0.01513792372167049814272059695462215109190,muI[2,2,0]->0.03027584744334104645304865032955612562773,muR[3,2,0]->0.02863080523873874688956071173570246317793,muI[1,-3,1]->0.001131428270348939223265647378289995823468,muI[2,-3,1]->0.001642209043651538918302692822079869908891,muR[3,-3,1]->-0.001504532985087302529079673369760712165381,muI[1,-2,1]->0.005225706358521713428544392780799330790800,muI[2,-2,1]->0.006662434066320419752093859845060973825605,muR[3,-2,1]->-0.007172829669403144500602304286334630638674,muI[1,-2,2]->0.001796487299652320355103638391128495216681,muI[2,-2,2]->0.001796487299652335766111376238070430980904,muR[3,-2,2]->-0.001585301051028493235122932157488358637359,muI[1,-1,2]->0.006662434066320560854443896596024626682284,muI[2,-1,2]->0.005225706358521858800585019119212838771576,muR[3,-1,2]->-0.007172829669403211220830363426414871847762,muI[1,-1,3]->0.001642209043651543566765402739979403902319,muI[2,-1,3]->0.001131428270348959550905907213694911468994,muR[3,-1,3]->-0.001504532985087298079914722148224320845889,muI[1,0,3]->-0.0009600847257214530785167692369106287390011,muI[2,0,3]->-0.0004800423628607471096087098362543152255219,muR[3,0,3]->0.0003263717752074412036790006293231800310393,muI[1,0,4]->0.0006127202899987506546426270937088889313130,muI[2,0,4]->0.0003063601449993977045363682609484439588639,muR[3,0,4]->-0.0005453433414171574067801520114943596140216,muI[1,1,3]->-0.006662434066321756234985923491006379018274,muI[2,1,3]->-0.001436727707799027643467474102528232009706,muR[3,1,3]->0.007172829669404126037453871067217787181272,muI[1,1,4]->-0.001642209043651310049453839318310568630632,muI[2,1,4]->-0.0005107807733025471376718042177209544001055,muR[3,1,4]->0.001504532985087075554444918842296595956436,muI[1,2,3]->0.005225706358522914751872335652423409438930,muI[2,2,3]->-0.001436727707799000490589011426904145344747,muR[3,2,3]->-0.007172829669404138770416339142954457726194,muI[1,2,4]->0.001796487299651706292631570342765733447214,muI[2,2,4]->1.823196083791282460027613977122176340130*10^-17,muR[3,2,4]->-0.001585301051027928268818849212644298649620,muI[1,3,0]->0.0004800423628610600418502313873038832936430,muI[2,3,0]->0.0009600847257220717201638075368131333388367,muR[3,3,0]->0.0003263717752079354101205649965543547291121,muI[1,3,1]->0.001436727707798960657861389996102811599627,muI[2,3,1]->0.006662434066321207657595203017242259534748,muR[3,3,1]->0.007172829669403709160840441530455576297030,muI[1,3,2]->0.001436727707798888513530125826014614439854,muI[2,3,2]->-0.005225706358522783234180685519505556083581,muR[3,3,2]->-0.007172829669403997288547137770369612540282,muI[1,3,3]->0.0004800423628601414053975262392424981927154,muI[2,3,3]->-0.0004800423628601767092989929422320416464442,muR[3,3,3]->-0.0003263717752065485410227092158849066307528,muI[1,3,4]->-0.001131428270348760943557075809544165519540,muI[2,3,4]->0.0005107807733025191451432832028764990045325,muR[3,3,4]->0.001504532985087038070974481728068003212601,muI[1,4,0]->-0.0003063601449993897467121643650413996264269,muI[2,4,0]->-0.0006127202899987384697147263457132459165505,muR[3,4,0]->-0.0005453433414171268509460835412495791200379,muI[1,4,1]->0.0005107807733025855228657677168187302926955,muI[2,4,1]->0.001642209043651459848873957806902395350187,muR[3,4,1]->0.001504532985087215871519838919659981945026,muI[1,4,2]->-2.411851218851793518337284914406741584546*10^-17,muI[2,4,2]->-0.001796487299651899923100822564558763335774,muR[3,4,2]->-0.001585301051028094618483265782545311141971,muI[1,4,3]->-0.0005107807733025199541854286236273061324515,muI[2,4,3]->0.001131428270348758837731972841797949052753,muR[3,4,3]->0.001504532985087044671015452668747140932147,muI[1,4,4]->0.0003063601449993718319373544458235816904696,muI[2,4,4]->-0.0003063601449993945804767677942417816765380,muR[3,4,4]->-0.0005453433414172112164269438477561300151359,a0->7.490865102144684920802287132672663584506,eta0->1.000000000000000620151190881164982034674,phi0->-2.215990364471313699038906221729998717242*10^-16},Parameters->{b->0.5,xi->0.88,lambda->500,Nx->1/3,Ny->1/3,Nz->1/3,alphaR0->0},DMIType->Bloch,FourierCutoff->4,MagneticRepresentation->SixFold|>
+Out[19]= Subscript[m, z]
+
+
+
+Out[22]= {0.0061466,0.246529,0.678113,1.11922,1.43299,1.90732,2.46492,2.59415,2.81897,3.20156,3.63645,4.17031,4.18052,4.45237,4.50414,4.55241,4.58796,5.09923,5.87532,5.93567}
+Out[23]= 
+In[24]:= test = ParallelTable[
+modes=SolveMagneticModes[dynamics,{0,0,qz},"FrequencyRange"->{0,6}];
+	(*Show low-energy magnon eigenfrequencies*)
+	{qz, modes["Frequencies"]}
+, {qz, -1, 1, 0.01}];
+In[27]:= ListPlot[Table[Table[{test[[idx, 1]], test[[idx, 2, mode]]}, {idx, 1, Length[test]}], {mode, 1, 10}], PlotRange->{{-1,1}, {0, 3.2}}, Joined->True, PlotStyle->Thick, ImageSize->600]
+Out[27]= 
+In[28]:= Get[FileNameJoin[{NotebookDirectory[],"..","wolfram","ModeAnalysis.wl"}]];
+During evaluation of In[28]:= ModeAnalysis.wl
+Analysis and classification of magnetic magnon eigenmodes. The current version implements dipole-moment classification at k = 0 and is structured for later angular-momentum analysis.
+Function	Description
+ModeDipoleMoment	Extract the G = 0 Fourier component of one k = 0 magnon mode and compute its breathing, CW and CCW dipole weights.
+ClassifyDipoleMode	Classify one dipole analysis as Breathing, CW, CCW or DipoleInactive.
+AnalyzeDipoleModes	Analyze and classify all modes of a k = 0 eigensystem using relative and/or absolute dipole-activity thresholds.
+
+
+
+
+In[29]:= dipole=ModeDipoleMoment[dynamics,modes,1]
+Out[29]= <|DipoleVector->{2.86925*10^-11-0.00286427 I,-0.00286427+2.25529*10^-11 I,-9.5443*10^-33+8.7371*10^-30 I},Dx->2.86925*10^-11-0.00286427 I,Dy->-0.00286427+2.25529*10^-11 I,Dz->-9.5443*10^-33+8.7371*10^-30 I,CircularPlusAmplitude->4.34135*10^-12-0.00405068 I,CircularMinusAmplitude->3.62359*10^-11-8.64626*10^-12 I,CWAmplitude->4.34135*10^-12-0.00405068 I,CCWAmplitude->3.62359*10^-11-8.64626*10^-12 I,BreathingWeight->7.63371*10^-59,CWWeight->0.000016408,CCWWeight->1.3878*10^-21,TotalDipoleWeight->0.000016408,TimeConvention->Exp[-Iomega t]|>
+In[47]:= Grid[Prepend[Table[{mode["ModeIndex"],NumberForm[N[mode["Frequency"]],{6,4}],ScientificForm[N[mode["Dipole"]["BreathingWeight"]]],ScientificForm[N[mode["Dipole"]["CWWeight"]]],ScientificForm[N[mode["Dipole"]["CCWWeight"]]],mode["DipoleClassification"]},{mode,analysis["Modes"]}],{"Mode","\[Omega]/\[Omega]c2","Breathing","CW","CCW","Classification"}],Frame->All,Alignment->Center]
+Out[47]= Mode	\[Omega]/\[Omega]c2	Breathing	CW	CCW	Classification
+1	0.0061	7.63371*10^(-59)	1.6408*10^(-5)	1.3878*10^(-21)	CW
+2	0.2465	2.23057*10^(-23)	1.07266*10^(-48)	1.70675*10^(-61)	DipoleInactive
+3	0.6781	5.05945*10^(-50)	1.47818*10^(-24)	2.00486*10^(-23)	DipoleInactive
+4	1.1192	1.53408*10^(-62)	8.31668*10^(-22)	4.98239*10^(-1)	CCW
+5	1.4330	1.04499*10^(-23)	3.66012*10^(-42)	2.99702*10^(-61)	DipoleInactive
+6	1.9073	4.41593*10^(-1)	3.47824*10^(-42)	2.20586*10^(-61)	Breathing
+7	2.4649	2.01514*10^(-60)	1.60311*10^(-1)	3.29074*10^(-22)	CW
+8	2.5942	3.53419*10^(-63)	1.12814*10^(-22)	4.7019*10^(-6)	CCW
+9	2.8190	2.39873*10^(-23)	6.89501*10^(-53)	6.52802*10^(-60)	DipoleInactive
+10	3.2016	3.1407*10^(-51)	6.86111*10^(-24)	9.17874*10^(-23)	DipoleInactive
+11	3.6364	2.78929*10^(-24)	8.7174*10^(-42)	6.05022*10^(-61)	DipoleInactive
+12	4.1703	9.24272*10^(-5)	2.22389*10^(-43)	1.79363*10^(-62)	Breathing
+13	4.1805	1.91731*10^(-62)	8.67722*10^(-24)	3.4013*10^(-3)	CCW
+14	4.4524	3.10482*10^(-23)	8.30762*10^(-49)	2.29055*10^(-61)	DipoleInactive
+15	4.5041	2.30508*10^(-4)	6.16006*10^(-43)	6.07827*10^(-62)	Breathing
+16	4.5524	1.18366*10^(-59)	3.59156*10^(-4)	3.4681*10^(-23)	CW
+17	4.5880	4.66738*10^(-50)	4.59163*10^(-25)	7.65745*10^(-23)	DipoleInactive
+18	5.0992	1.44548*10^(-25)	5.4863*10^(-42)	4.70266*10^(-61)	DipoleInactive
+19	5.8753	1.25661*10^(-62)	8.6178*10^(-24)	2.57531*10^(-4)	CCW
+20	5.9357	6.08542*10^(-59)	4.22581*10^(-6)	6.44572*10^(-22)	CW
+
