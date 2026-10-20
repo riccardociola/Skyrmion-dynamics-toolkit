@@ -23,6 +23,7 @@ ClearAll[
     MagneticVariables,
     ElasticVariables,
     ConfigureFourierBasis,
+    MagneticFourierComponent,
     FourierBasisHelp
 ];
 
@@ -383,6 +384,7 @@ FourierBasisHelp[] :=
                     {"U", "Return the elastic displacement Fourier component U[n1,n2]."},
                     {"MagneticVariables", "Return the independent magnetic optimization variables."},
                     {"ElasticVariables", "Return the independent elastic optimization variables."},
+                    {"MagneticFourierComponent", "Return a magnetic Fourier component for an explicit cutoff and representation."},
                     {"independentNodes", "Return the independent reciprocal-space nodes inside the hexagonal cutoff."},
                     {"hexagonNodeQ", "Test whether a reciprocal node lies inside the finite hexagonal cutoff."}
                 },

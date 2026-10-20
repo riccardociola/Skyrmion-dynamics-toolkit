@@ -12,6 +12,7 @@
 ClearAll[
     BuildMagneticEnergy,
     MagneticEnergyCacheFile,
+    MagneticFieldDirectionTag,
     SimplifyMagneticEnergyContribution,
     BuildEnergyHelp
 ];
@@ -65,15 +66,103 @@ $ProjectRoot =
     DirectoryName[$BuildEnergyDirectory];
 
 (*
-    Cache version 2 deliberately does not reuse old, SixFold-only
-    caches. Cache identity includes the Fourier representation and
-    whether cubic MCA is present. If MCA is present, it also includes
-    the normalized, canonicalized field direction.
+    Cache names:
+        magnetic_bloch_N2_sixfold.txt
+        magnetic_bloch_N2_general_Kcub_H001.txt
+        magnetic_bloch_N2_general_Kcub_H110.txt
 
-    Symmetry-equivalent [100], [010], [001] orientations are thus
-    assigned the same model cache. Strength kappaCub stays symbolic,
-    so its numerical value does not need to enter the cache name.
+    Isotropic models carry no anisotropy or field-direction suffix.
+    With cubic anisotropy enabled, H identifies the normalized field
+    direction in crystal coordinates. The cubic-axis-equivalent
+    [100], [010], [001] directions are all represented as H001.
+
+    An integer or rational Miller direction is reduced to coprime
+    integer components. Simple single-digit directions produce short
+    names like H110; larger or signed indices are encoded without
+    ambiguity. Non-rational directions receive a stable short hash of
+    the normalized direction, avoiding collisions from rounding.
+
+    kappaCub remains symbolic, so its magnitude is not part of the
+    filename. Both magnetic representations are supported independently
+    of whether cubic anisotropy is enabled.
 *)
+MagneticFieldDirectionTag[
+    fieldDirection_List
+] :=
+    Module[
+        {
+            direction,
+            exactDirection,
+            integerDirection,
+            commonDenominator,
+            commonDivisor,
+            coordinates,
+            hash
+        },
+
+        direction =
+            CanonicalCubicFieldDirection[fieldDirection];
+
+        If[direction === $Failed,
+            Return[$Failed]
+        ];
+
+        (* All cubic-axis-equivalent directions have one cache name. *)
+        If[direction === {0, 0, 1},
+            Return["H001"]
+        ];
+
+        (* Avoid introducing approximate rational equivalences. *)
+        exactDirection =
+            VectorQ[
+                fieldDirection,
+                (IntegerQ[#] || Head[#] === Rational) &
+            ];
+
+        If[exactDirection,
+            commonDenominator =
+                Apply[LCM, Denominator /@ fieldDirection];
+
+            integerDirection =
+                commonDenominator fieldDirection;
+
+            commonDivisor =
+                Apply[GCD, Abs[integerDirection]];
+
+            integerDirection =
+                integerDirection / commonDivisor;
+
+            coordinates =
+                If[
+                    Max[Abs[integerDirection]] <= 9,
+                    StringJoin[
+                        (If[# < 0, "m" <> ToString[-#], ToString[#]] &)
+                            /@ integerDirection
+                    ],
+                    StringRiffle[
+                        (If[# < 0, "m" <> ToString[-#], ToString[#]] &)
+                            /@ integerDirection,
+                        "_"
+                    ]
+                ];
+
+            Return["H" <> coordinates];
+        ];
+
+        (* Arbitrary real/symbolic directions: retain a unique tag. *)
+        hash =
+            StringTake[
+                IntegerString[
+                    Hash[direction, "SHA256"],
+                    16,
+                    64
+                ],
+                12
+            ];
+
+        "Hdir_" <> hash
+    ];
+
 MagneticEnergyCacheFile[
     cutoff_Integer?NonNegative,
     dmiType_String,
@@ -84,9 +173,8 @@ MagneticEnergyCacheFile[
             representation,
             useMCA,
             fieldDirection,
-            canonicalDirection,
-            orientationTag,
-            anisotropyTag
+            suffix,
+            directionTag
         },
 
         representation =
@@ -98,32 +186,23 @@ MagneticEnergyCacheFile[
         fieldDirection =
             OptionValue["FieldDirection"];
 
-        anisotropyTag =
-            If[useMCA, "cub", "nocub"];
+        suffix = "";
 
-        orientationTag =
-            If[
-                useMCA,
-
-                canonicalDirection =
-                    CanonicalCubicFieldDirection[fieldDirection];
-
-                If[canonicalDirection === $Failed,
-                    Return[$Failed]
-                ];
-
-                "_H" <>
-                    StringTake[
-                        IntegerString[
-                            Hash[canonicalDirection, "SHA256"],
-                            16,
-                            64
-                        ],
-                        12
-                    ],
-
-                ""
+        If[useMCA,
+            If[!ListQ[fieldDirection] || Length[fieldDirection] != 3,
+                Message[BuildMagneticEnergy::field, fieldDirection];
+                Return[$Failed]
             ];
+
+            directionTag =
+                MagneticFieldDirectionTag[fieldDirection];
+
+            If[directionTag === $Failed,
+                Return[$Failed]
+            ];
+
+            suffix = "_Kcub_" <> directionTag;
+        ];
 
         FileNameJoin[
             {
@@ -131,12 +210,11 @@ MagneticEnergyCacheFile[
                 "cache",
                 "energies",
                 StringJoin[
-                    "magnetic_v2_",
+                    "magnetic_",
                     ToLowerCase[dmiType],
                     "_N", ToString[cutoff],
                     "_", ToLowerCase[representation],
-                    "_", anisotropyTag,
-                    orientationTag,
+                    suffix,
                     ".txt"
                 ]
             }
@@ -430,7 +508,8 @@ BuildEnergyHelp[] :=
                 {
                     {"Function", "Description"},
                     {"BuildMagneticEnergy", "Build/cache the energy for SixFold or General magnetization, optionally including cubic MCA."},
-                    {"MagneticEnergyCacheFile", "Return the cache path for the specified DMI, cutoff, Fourier representation and MCA field orientation."},
+                    {"MagneticEnergyCacheFile", "Return a descriptive cache path; append _Kcub_H... only when cubic MCA is enabled."},
+                    {"MagneticFieldDirectionTag", "Build a stable crystallographic direction label for the MCA cache."},
                     {"SimplifyMagneticEnergyContribution", "Simplify one term with its own time limit; retain the original term on timeout."}
                 },
                 Frame -> All,
