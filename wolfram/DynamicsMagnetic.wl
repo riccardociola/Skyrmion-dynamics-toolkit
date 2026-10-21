@@ -553,6 +553,15 @@ Options[
 };
 
 (*
+    This solver deliberately supports isotropic magnetic energies only.
+    Reject MCA equilibria here, before building a Hessian that would
+    omit the cubic-anisotropy contribution.
+    Older saved isotropic equilibria without this metadata are accepted.
+*)
+PrepareMagneticDynamics::mca =
+    "This solver supports only isotropic magnetic equilibria. The supplied equilibrium has CubicAnisotropy -> True; use the anisotropic dynamics solver instead.";
+
+(*
     Precompute all quantities that are independent of the Bloch
     wavevector k:
 
@@ -576,6 +585,12 @@ PrepareMagneticDynamics[
             constraintHessian,
             constraintHessianTransverse
         },
+
+        If[
+            TrueQ[Lookup[equilibrium, "CubicAnisotropy", False]],
+            Message[PrepareMagneticDynamics::mca];
+            Return[$Failed]
+        ];
 
         nodes =
             DynamicsNodes[
