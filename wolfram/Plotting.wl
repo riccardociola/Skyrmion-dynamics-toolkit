@@ -1,7 +1,7 @@
 (* ================================================================ *)
 (* Plotting.wl                                                      *)
 (*                                                                  *)
-(* Real-space visualization of equilibrium skyrmion textures and   *)
+(* Real-space visualization of isotropic and MCA SkL textures and  *)
 (* magnetic magnon eigenfunctions.                                 *)
 (*                                                                  *)
 (* Dependencies:                                                    *)
@@ -15,6 +15,8 @@
 ClearAll[
     MagnetizationAffine,
     MagnetizationCartesian,
+    EquilibriumCubicAnisotropyQ,
+    EquilibriumPlotTitleItems,
 
     neighborVectors,
     Tpoint,
@@ -152,6 +154,88 @@ MagnetizationCartesian[
     ];
 
 (* --------------------------------------------------------------- *)
+(* Equilibrium metadata                                           *)
+(* --------------------------------------------------------------- *)
+
+(*
+    Detect whether cubic anisotropy is part of the saved model.
+
+    New equilibria carry the explicit "CubicAnisotropy" key.
+    For older files without this metadata, infer MCA from the
+    presence of kappaCub in the fixed physical parameters.
+
+    The Fourier representation is deliberately NOT used for this
+    check: both SixFold and General equilibria may include MCA.
+*)
+EquilibriumCubicAnisotropyQ[equilibrium_Association] :=
+    Module[
+        {
+            cubicFlag
+        },
+
+        cubicFlag =
+            Lookup[
+                equilibrium,
+                "CubicAnisotropy",
+                Automatic
+            ];
+
+        If[
+            cubicFlag === Automatic,
+
+            ! FreeQ[
+                Lookup[equilibrium, "Parameters", {}],
+                HoldPattern[kappaCub -> _]
+            ],
+
+            TrueQ[cubicFlag]
+        ]
+    ];
+
+(* Central title metadata, shared by the equilibrium and mode plots. *)
+(* Display the field indices as supplied at minimization time, not  *)
+(* the canonicalized direction used by the MCA energy construction. *)
+EquilibriumPlotTitleItems[equilibrium_Association] :=
+    Module[{parameters, dmiType, bValue, xiValue, kappaValue,
+            fieldTag, inputDirection, mcaItems, rigidItems},
+        parameters = Lookup[equilibrium, "Parameters", {}];
+        dmiType = Lookup[equilibrium, "DMIType", "Unknown"];
+        bValue = b /. parameters;
+        xiValue = xi /. parameters;
+
+        mcaItems = {};
+        If[EquilibriumCubicAnisotropyQ[equilibrium],
+            kappaValue = kappaCub /. parameters;
+            mcaItems = If[NumericQ[N[kappaValue]],
+                {"   |   \[Kappa]cub = ", NumberForm[N[kappaValue], {5, 3}]},
+                {"   |   cubic MCA"}
+            ];
+            fieldTag = Lookup[equilibrium, "FieldDirectionTag", Missing["NotSaved"]];
+            If[!StringQ[fieldTag],
+                inputDirection = Lookup[equilibrium, "FieldDirectionInput", Missing["NotSaved"]];
+                If[ListQ[inputDirection] && Length[inputDirection] == 3 &&
+                   Length[DownValues[GroundStateFieldDirectionTag]] > 0,
+                    fieldTag = GroundStateFieldDirectionTag[inputDirection]
+                ];
+            ];
+            If[StringQ[fieldTag] && StringStartsQ[fieldTag, "H"],
+                mcaItems = Join[mcaItems,
+                    {"   |   H//[",
+                     StringReplace[StringDrop[fieldTag, 1], "m" -> "-"], "]"}]
+            ];
+        ];
+
+        rigidItems = If[TrueQ[Lookup[equilibrium, "RigidLattice", False]],
+            {"   |   rigidLattice"}, {}];
+
+        Join[
+            {dmiType, " DMI   |   ", "b = ", NumberForm[N[bValue], {5, 3}],
+             "   |   ", "\[Xi] = ", NumberForm[N[xiValue], {5, 3}]},
+            mcaItems, rigidItems
+        ]
+    ];
+
+(* --------------------------------------------------------------- *)
 (* Wigner-Seitz cell                                              *)
 (* --------------------------------------------------------------- *)
 
@@ -204,7 +288,11 @@ Tpoint[
         Last
     ];
 
-(* Wigner-Seitz cell of the magnetic lattice. *)
+(*
+    Legacy hexagonal-cell boundary construction. Its use is limited
+    to isotropic equilibria in the plotting functions below; for a
+    deformed lattice this construction is not generally reliable.
+*)
 WZC[
     eta_,
     phi_,
@@ -241,6 +329,7 @@ Options[SkyrmionConfigurationPlot] = {
     ImageSize -> 600,
     "ShowFrameAndLabels" -> True,
     "ShowTitle" -> True,
+    "ShowWignerSeitzCell" -> Automatic,
     "Range" -> 1.0,
     "PlotPoints" -> 80,
     "VectorPoints" -> 19
@@ -256,7 +345,12 @@ Options[SkyrmionConfigurationPlot] = {
         in-plane Cartesian magnetization (mx,my).
 
     Dashed boundary:
-        Wigner-Seitz cell.
+        Legacy hexagonal Wigner-Seitz cell, shown by default only
+        when cubic MCA is absent.
+
+    "ShowWignerSeitzCell" -> False also disables the boundary for
+    isotropic equilibria. When MCA is present, the boundary remains
+    suppressed even if the option is set to True.
 *)
 SkyrmionConfigurationPlot[
     equilibrium_Association,
@@ -265,9 +359,6 @@ SkyrmionConfigurationPlot[
     Module[
         {
             solutionRules,
-            dmiType,
-            bValue,
-            xiValue,
             etaValue,
             phiValue,
             alphaValue,
@@ -279,6 +370,8 @@ SkyrmionConfigurationPlot[
             range,
             plotPoints,
             vectorPoints,
+            hasCubicAnisotropy,
+            showWignerSeitzCell,
             frameLabels,
             plotTitle,
             densityPlot,
@@ -290,15 +383,6 @@ SkyrmionConfigurationPlot[
             EquilibriumRules[
                 equilibrium
             ];
-
-        dmiType =
-            equilibrium["DMIType"];
-
-        bValue =
-            b /. equilibrium["Parameters"];
-
-        xiValue =
-            xi /. equilibrium["Parameters"];
 
         etaValue =
             eta0 /. solutionRules;
@@ -328,6 +412,20 @@ SkyrmionConfigurationPlot[
         vectorPoints =
             OptionValue["VectorPoints"];
 
+        hasCubicAnisotropy =
+            EquilibriumCubicAnisotropyQ[equilibrium];
+
+        (*
+            WZC is a legacy hexagonal boundary construction.
+            Do not evaluate it for MCA, where the SkL may deform.
+        *)
+        showWignerSeitzCell =
+            ! hasCubicAnisotropy
+            &&
+            OptionValue["ShowWignerSeitzCell"] =!= False;
+
+        (* Title metadata is assembled by EquilibriumPlotTitleItems. *)
+
         (* Center the plot around the primitive cell. *)
         centerX =
             x0[
@@ -354,17 +452,7 @@ SkyrmionConfigurationPlot[
             If[
                 showTitle,
                 Style[
-                    Row[
-                        {
-                            dmiType,
-                            " DMI   |   ",
-                            "b = ",
-                            NumberForm[N[bValue], {5, 3}],
-                            "   |   ",
-                            "\[Xi] = ",
-                            NumberForm[N[xiValue], {5, 3}]
-                        }
-                    ],
+                    Row[EquilibriumPlotTitleItems[equilibrium]],
                     15,
                     Bold
                 ],
@@ -467,18 +555,20 @@ SkyrmionConfigurationPlot[
 
         (* Wigner-Seitz-cell boundary. *)
         cellBoundary =
-            RegionPlot[
-                WZC[
-                    etaValue,
-                    phiValue,
-                    alphaValue
+            If[
+                showWignerSeitzCell,
+
+                RegionPlot[
+                    WZC[
+                        etaValue,
+                        phiValue,
+                        alphaValue
+                    ],
+                    PlotStyle -> None,
+                    BoundaryStyle -> {Thick, Dashed, Black}
                 ],
 
-                PlotStyle ->
-                    None,
-
-                BoundaryStyle ->
-                    {Thick, Dashed, Black}
+                Graphics[{}]
             ];
 
 
@@ -637,6 +727,8 @@ Options[MagnonEigenfunctionPlot] = {
 
     "ShowTitle" -> True,
 
+    "ShowWignerSeitzCell" -> Automatic,
+
     "Range" -> 0.8,
 
     "PlotPoints" -> 80,
@@ -665,6 +757,9 @@ Options[MagnonEigenfunctionPlot] = {
 
     "Part" -> "Both" returns real and imaginary panels side-by-side
     using the same symmetric color scale.
+
+    The hexagonal Wigner-Seitz overlay is automatically suppressed
+    for saved equilibria with cubic MCA. This applies to both panels.
 *)
 MagnonEigenfunctionPlot[
     dynamicsData_Association,
@@ -677,9 +772,6 @@ MagnonEigenfunctionPlot[
             equilibrium,
             nodes,
             solutionRules,
-            dmiType,
-            bValue,
-            xiValue,
             etaValue,
             phiValue,
             alphaValue,
@@ -700,6 +792,8 @@ MagnonEigenfunctionPlot[
             vectorPoints,
             colorMaximum,
             colorSamplingPoints,
+            hasCubicAnisotropy,
+            showWignerSeitzCell,
             frameLabels,
             xSamples,
             ySamples,
@@ -754,15 +848,6 @@ MagnonEigenfunctionPlot[
 
 
         (* Physical metadata used in the title. *)
-        dmiType =
-            equilibrium["DMIType"];
-
-        bValue =
-            b /. equilibrium["Parameters"];
-
-        xiValue =
-            xi /. equilibrium["Parameters"];
-
 
         (* Equilibrium lattice parameters. *)
         aValue =
@@ -847,6 +932,16 @@ MagnonEigenfunctionPlot[
 
         colorSamplingPoints =
             OptionValue["ColorSamplingPoints"];
+
+        hasCubicAnisotropy =
+            EquilibriumCubicAnisotropyQ[equilibrium];
+
+        showWignerSeitzCell =
+            ! hasCubicAnisotropy
+            &&
+            OptionValue["ShowWignerSeitzCell"] =!= False;
+
+        (* Title metadata is assembled by EquilibriumPlotTitleItems. *)
 
         frameLabels =
             If[
@@ -961,33 +1056,16 @@ MagnonEigenfunctionPlot[
                         showTitle,
                         Style[
                             Row[
-                                {
-                                    partLabel,
-                                    "   |   Mode ",
-                                    modeIndex,
-                                    "   |   ",
-                                    "\[Omega]/",
-                                    Subscript["\[Omega]", "c2"],
-                                    " = ",
-                                    NumberForm[
-                                        N[frequencyValue],
-                                        {6, 4}
-                                    ],
-                                    "   |   ",
-                                    dmiType,
-                                    " DMI   |   ",
-                                    "b = ",
-                                    NumberForm[
-                                        N[bValue],
-                                        {5, 3}
-                                    ],
-                                    "   |   ",
-                                    "\[Xi] = ",
-                                    NumberForm[
-                                        N[xiValue],
-                                        {5, 3}
-                                    ]
-                                }
+                                Join[
+                                    {
+                                        partLabel,
+                                        "   |   Mode ", modeIndex,
+                                        "   |   \[Omega]/", Subscript["\[Omega]", "c2"],
+                                        " = ", NumberForm[N[frequencyValue], {6, 4}],
+                                        "   |   "
+                                    },
+                                    EquilibriumPlotTitleItems[equilibrium]
+                                ]
                             ],
                             14,
                             Bold
@@ -1120,22 +1198,20 @@ MagnonEigenfunctionPlot[
 
 
                 cellBoundary =
-                    RegionPlot[
-                        WZC[
-                            etaValue,
-                            phiValue,
-                            alphaValue
+                    If[
+                        showWignerSeitzCell,
+
+                        RegionPlot[
+                            WZC[
+                                etaValue,
+                                phiValue,
+                                alphaValue
+                            ],
+                            PlotStyle -> None,
+                            BoundaryStyle -> {Thick, Dashed, Black}
                         ],
 
-                        PlotStyle ->
-                            None,
-
-                        BoundaryStyle ->
-                            {
-                                Thick,
-                                Dashed,
-                                Black
-                            }
+                        Graphics[{}]
                     ];
 
 
@@ -1198,10 +1274,11 @@ PlottingHelp[] :=
                     {"Function", "Description"},
                     {"MagnetizationAffine", "Reconstruct the saved equilibrium magnetization in affine coordinates."},
                     {"MagnetizationCartesian", "Reconstruct the saved equilibrium magnetization in Cartesian components."},
-                    {"WZC", "Construct the real-space Wigner-Seitz cell."},
-                    {"SkyrmionConfigurationPlot", "Plot a saved equilibrium configuration with mz color map and in-plane magnetization arrows."},
+                    {"EquilibriumCubicAnisotropyQ", "Identify MCA equilibria from saved model metadata, with fallback for older files."},
+                    {"WZC", "Construct the legacy hexagonal real-space Wigner-Seitz cell."},
+                    {"SkyrmionConfigurationPlot", "Plot the equilibrium magnetization. Suppress the Wigner-Seitz boundary automatically for MCA."},
                     {"MagnonEigenfunctionCartesian", "Reconstruct one normalized magnon eigenfunction in Cartesian components, including finite Bloch wavevector k."},
-                    {"MagnonEigenfunctionPlot", "Plot the real, imaginary, or both parts of a magnon eigenfunction with common symmetric color scaling."},
+                    {"MagnonEigenfunctionPlot", "Plot real/imaginary magnon eigenfunctions with common color scaling and MCA-aware boundary suppression."},
                     {"neighborVectors / Tpoint", "Internal geometric helpers used to construct the Wigner-Seitz cell."}
                 },
                 Frame -> All,

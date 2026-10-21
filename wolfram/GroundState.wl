@@ -1,36 +1,26 @@
 (* ================================================================ *)
 (* GroundState.wl                                                   *)
-(*                                                                  *)
 (* Magnetic equilibrium minimization, storage and continuation.    *)
-(* Supports SixFold / General Fourier bases and optional cubic MCA. *)
-(*                                                                  *)
-(* Dependencies: FourierBasis.wl, BuildEnergy.wl,                    *)
-(*               EnergyAnisotropy.wl for cubic MCA.                 *)
+(* Supports MCA, SixFold/General bases, and optional rigid lattice. *)
+(* Dependencies: FourierBasis.wl, BuildEnergy.wl, EnergyAnisotropy.wl *)
 (* ================================================================ *)
 
 ClearAll[
-    GroundStateModelSettings,
-    GroundStateInitialValues,
-    GroundStateParameterLabel,
-    FindMagneticEquilibrium,
-    EquilibriumFileName,
-    EquilibriumFilePath,
-    EquilibriumExistsQ,
-    SaveMagneticEquilibrium,
-    LoadMagneticEquilibrium,
-    EquilibriumRules,
-    EquilibriumAnsatz,
-    ParameterSweep,
-    GroundStateHelp
+    GroundStateFieldDirectionTag, GroundStateModelSettings,
+    GroundStateInitialValues, GroundStateCompletedSolution,
+    GroundStateParameterLabel, GroundStateParametersMatchQ,
+    GroundStateMatchesRequestQ, FindMagneticEquilibrium,
+    EquilibriumFileName, EquilibriumFilePath, EquilibriumExistsQ,
+    SaveMagneticEquilibrium, LoadMagneticEquilibrium,
+    EquilibriumRules, EquilibriumAnsatz, ParameterSweep, GroundStateHelp
 ];
 
-(* Model options match BuildMagneticEnergy. Automatic representation   *)
-(* and cutoff use the active Fourier configuration.                  *)
 $GroundStateModelOptions = {
     "FourierCutoff" -> Automatic,
     "MagneticRepresentation" -> Automatic,
     "CubicAnisotropy" -> Automatic,
-    "FieldDirection" -> {0, 0, 1}
+    "FieldDirection" -> {0, 0, 1},
+    "RigidLattice" -> False
 };
 
 Options[EquilibriumFileName] = $GroundStateModelOptions;
@@ -38,97 +28,90 @@ Options[EquilibriumFilePath] = $GroundStateModelOptions;
 Options[EquilibriumExistsQ] = $GroundStateModelOptions;
 Options[SaveMagneticEquilibrium] = $GroundStateModelOptions;
 Options[LoadMagneticEquilibrium] = $GroundStateModelOptions;
-
 Options[FindMagneticEquilibrium] = Join[
     $GroundStateModelOptions,
     {"Save" -> False, "DMIType" -> Automatic, "PrintSteps" -> False}
 ];
-
 Options[EquilibriumAnsatz] = Join[
-    $GroundStateModelOptions,
+    {"FourierCutoff" -> Automatic,
+     "MagneticRepresentation" -> Automatic,
+     "CubicAnisotropy" -> Automatic,
+     "FieldDirection" -> {0, 0, 1},
+     "RigidLattice" -> Automatic},
     {"AllowRepresentationChange" -> False}
 ];
-
 Options[ParameterSweep] = $GroundStateModelOptions;
 
-GroundStateModelSettings::cutoff =
-    "Invalid Fourier cutoff `1`. Build an energy first or specify a nonnegative FourierCutoff.";
-GroundStateModelSettings::rep =
-    "Invalid magnetic representation `1`. Expected \"SixFold\" or \"General\".";
-GroundStateModelSettings::field =
-    "Invalid cubic field direction `1`. Check that EnergyAnisotropy.wl is loaded.";
-GroundStateModelSettings::builder =
-    "BuildEnergy.wl must be loaded to construct model-specific equilibrium filenames.";
-FindMagneticEquilibrium::kappa =
-    "Cubic MCA was requested but parameterRules does not contain kappaCub -> value.";
-FindMagneticEquilibrium::energy =
-    "CubicAnisotropy option does not agree with the symbolic energy: presence of kappaCub = `1`, option = `2`.";
-FindMagneticEquilibrium::vars =
-    "Initial values must specify a0, eta0 and phi0; missing `1`.";
-FindMagneticEquilibrium::ansatz =
-    "Unable to prepare the minimization ansatz.";
-FindMagneticEquilibrium::save =
-    "To save automatically, specify \"DMIType\" -> \"Bloch\", \"Neel\", or \"Anti\".";
-EquilibriumAnsatz::cutoff =
-    "Saved cutoff `1` differs from the current cutoff `2`.";
-EquilibriumAnsatz::rep =
-    "Saved representation `1` differs from the requested representation `2`. Set \"AllowRepresentationChange\" -> True to expand a SixFold seed into a General one.";
-EquilibriumAnsatz::conversion =
-    "Automatic conversion from `1` to `2` is not supported.";
-SaveMagneticEquilibrium::result =
-    "Expected a successful FindMinimum result {energy, solutionRules}.";
-SaveMagneticEquilibrium::rotation =
-    "Cubic MCA equilibrium must contain alphaR0 among the optimized solution variables.";
-ParameterSweep::ansatz =
-    "Could not construct a compatible continuation ansatz for `1` = `2`.";
+GroundStateModelSettings::cutoff = "Invalid Fourier cutoff `1`.";
+GroundStateModelSettings::rep = "Invalid magnetic representation `1`.";
+GroundStateModelSettings::field = "Invalid field direction `1`.";
+GroundStateModelSettings::rigid = "RigidLattice must be True or False (received `1`).";
+EquilibriumFileName::params = "Equilibrium filenames require b, xi, Nz and lambda; missing `1`.";
+FindMagneticEquilibrium::kappa = "Cubic MCA requested but kappaCub -> value is missing.";
+FindMagneticEquilibrium::energy = "CubicAnisotropy = `2` disagrees with the energy (kappaCub present = `1`).";
+FindMagneticEquilibrium::vars = "Initial geometry values are missing: `1`.";
+FindMagneticEquilibrium::ansatz = "Could not prepare minimization variables.";
+FindMagneticEquilibrium::save = "Set DMIType to Bloch, Neel or Anti to save automatically.";
+EquilibriumAnsatz::cutoff = "Saved Fourier cutoff `1` differs from requested cutoff `2`.";
+EquilibriumAnsatz::rep = "Saved representation `1` differs from requested `2`. Set AllowRepresentationChange -> True to expand a SixFold seed into General.";
+EquilibriumAnsatz::conversion = "Unsupported representation change `1` -> `2`.";
+SaveMagneticEquilibrium::result = "Expected {energy, solutionRules} with valid equilibrium geometry.";
+SaveMagneticEquilibrium::rotation = "Cubic MCA requires alphaR0 in Solution.";
+SaveMagneticEquilibrium::collision = "File `1` already contains different model metadata or physical parameters. Refusing to overwrite.";
+LoadMagneticEquilibrium::metadata = "Saved equilibrium in `1` does not match the requested parameters/model.";
+ParameterSweep::ansatz = "Could not prepare the continuation ansatz for `1` = `2`.";
 
 (* --------------------------------------------------------------- *)
-(* Model metadata                                                  *)
+(* Model metadata and crystallographic field label                  *)
 (* --------------------------------------------------------------- *)
 
-(* Resolve the model once and pass the same choices to naming,      *)
-(* saving, loading, and minimization.                                *)
+(* Use the user's raw indices: H100 and H001 are different filenames. *)
+(* Minus signs and decimal points become filename-safe text.         *)
+GroundStateFieldDirectionTag[direction_List] /; Length[direction] == 3 :=
+    Module[{parts},
+        parts = ToString[InputForm[#]] & /@ direction;
+        parts = StringReplace[parts, {
+            "-" -> "m", "." -> "p", " " -> "", "/" -> "d",
+            "[" -> "", "]" -> "", "(" -> "", ")" -> "",
+            "*" -> "x", "^" -> "pow", "`" -> ""
+        }];
+        "H" <> If[AllTrue[parts, StringMatchQ[#, DigitCharacter] &],
+            StringJoin[parts], StringRiffle[parts, "_"]]
+    ];
+GroundStateFieldDirectionTag[_] := $Failed;
+
+(* The orientation is canonicalized ONLY for the physical crystal frame. *)
+(* Filename and title refer to FieldDirectionInput, not its canonical copy. *)
 GroundStateModelSettings[
-    parameterRules_List,
-    cutoffInput_: Automatic,
-    representationInput_: Automatic,
-    cubicInput_: Automatic,
-    fieldDirectionInput_: {0, 0, 1}
-] := Module[
-    {cutoff, representation, useMCA, direction},
-
-    cutoff = Replace[
-        cutoffInput,
-        Automatic :> If[ValueQ[$FourierCutoff], $FourierCutoff, $Failed]
-    ];
-    representation = Replace[
-        representationInput,
-        Automatic :> If[ValueQ[$MagneticRepresentation],
-            $MagneticRepresentation, "SixFold"]
-    ];
-    useMCA = Replace[
-        cubicInput,
-        Automatic :> !FreeQ[parameterRules, HoldPattern[kappaCub -> _]]
-    ];
+    parameterRules_List, cutoffInput_: Automatic,
+    representationInput_: Automatic, cubicInput_: Automatic,
+    fieldDirectionInput_: {0, 0, 1}, rigidInput_: False
+] := Module[{cutoff, representation, useMCA, direction, directionTag},
+    cutoff = Replace[cutoffInput,
+        Automatic :> If[ValueQ[$FourierCutoff], $FourierCutoff, $Failed]];
+    representation = Replace[representationInput,
+        Automatic :> If[ValueQ[$MagneticRepresentation], $MagneticRepresentation, "SixFold"]];
+    useMCA = Replace[cubicInput,
+        Automatic :> !FreeQ[parameterRules, HoldPattern[kappaCub -> _]]];
 
     If[!IntegerQ[cutoff] || cutoff < 0,
-        Message[GroundStateModelSettings::cutoff, cutoff];
-        Return[$Failed]
-    ];
+        Message[GroundStateModelSettings::cutoff, cutoff]; Return[$Failed]];
     If[!MemberQ[{"SixFold", "General"}, representation],
-        Message[GroundStateModelSettings::rep, representation];
-        Return[$Failed]
-    ];
+        Message[GroundStateModelSettings::rep, representation]; Return[$Failed]];
+    If[!MemberQ[{True, False}, rigidInput],
+        Message[GroundStateModelSettings::rigid, rigidInput]; Return[$Failed]];
 
     direction = Missing["NotApplicable"];
+    directionTag = Missing["NotApplicable"];
     If[TrueQ[useMCA],
         If[!ListQ[fieldDirectionInput] || Length[fieldDirectionInput] != 3 ||
-            Length[DownValues[CanonicalCubicFieldDirection]] == 0,
+           Length[DownValues[CanonicalCubicFieldDirection]] == 0,
             Message[GroundStateModelSettings::field, fieldDirectionInput];
             Return[$Failed]
         ];
         direction = CanonicalCubicFieldDirection[fieldDirectionInput];
-        If[direction === $Failed,
+        directionTag = GroundStateFieldDirectionTag[fieldDirectionInput];
+        If[direction === $Failed || directionTag === $Failed,
             Message[GroundStateModelSettings::field, fieldDirectionInput];
             Return[$Failed]
         ];
@@ -138,151 +121,135 @@ GroundStateModelSettings[
         "FourierCutoff" -> cutoff,
         "MagneticRepresentation" -> representation,
         "CubicAnisotropy" -> TrueQ[useMCA],
-        "FieldDirectionCrystal" -> direction
+        "RigidLattice" -> TrueQ[rigidInput],
+        "FieldDirectionInput" -> If[TrueQ[useMCA], fieldDirectionInput, Missing["NotApplicable"]],
+        "FieldDirectionCrystal" -> direction,
+        "FieldDirectionTag" -> directionTag
     |>
 ];
 
 (* --------------------------------------------------------------- *)
-(* Minimization ansatz                                             *)
+(* Minimization ansatz                                              *)
 (* --------------------------------------------------------------- *)
 
-(* Include ALL independent Fourier variables of the chosen basis.  *)
-(* Missing coefficients are seeded with zero (useful when promoting *)
-(* a SixFold equilibrium to the General representation).            *)
-(* For isotropic energies alphaR0 is fixed by a parameter rule;     *)
-(* for MCA alphaR0 is optimized, with an initial seed of zero.       *)
+(* eta0 and phi0 are optimized normally, but fixed to 1 and 0 for  *)
+(* RigidLattice. They ALWAYS belong to the saved Solution, never   *)
+(* Parameters. Isotropic configurations ALWAYS fix alphaR0 -> 0.  *)
 GroundStateInitialValues[
-    initialValues_List,
-    settings_Association,
-    parameterRules_List
-] := Module[
-    {seedRules, seed, fixedValues, useMCA, variables, missingGeometry,
-     alphaSeed, prepared, parameters},
-
-    seedRules = Cases[initialValues, {_, _}];
-    seed = Association[Rule @@@ seedRules];
-    fixedValues = Association[parameterRules];
+    initialValues_List, settings_Association, parameterRules_List
+] := Module[{seed, useMCA, rigid, variables, missingGeometry,
+             effectiveParameters, alphaSeed, prepared},
+    seed = Association[Rule @@@ Cases[initialValues, {_, _}]];
     useMCA = settings["CubicAnisotropy"];
+    rigid = settings["RigidLattice"];
 
-    missingGeometry = Select[{a0, eta0, phi0}, !KeyExistsQ[seed, #] &];
+    missingGeometry = Select[
+        If[rigid, {a0}, {a0, eta0, phi0}], !KeyExistsQ[seed, #] &];
     If[missingGeometry =!= {},
-        Message[FindMagneticEquilibrium::vars, missingGeometry];
-        Return[$Failed]
-    ];
+        Message[FindMagneticEquilibrium::vars, missingGeometry]; Return[$Failed]];
+
+    (* Remove geometry and rotation rules supplied as fixed parameters. *)
+    effectiveParameters = Select[parameterRules,
+        !MemberQ[{eta0, phi0, alphaR0}, First[#]] &];
+    If[!useMCA, AppendTo[effectiveParameters, alphaR0 -> 0]];
 
     alphaSeed = If[useMCA,
-        Lookup[seed, alphaR0, Lookup[fixedValues, alphaR0, 0]],
-        Lookup[fixedValues, alphaR0, Lookup[seed, alphaR0, 0]]
-    ];
-
-    parameters = DeleteCases[parameterRules, HoldPattern[alphaR0 -> _]];
-    If[!useMCA,
-        parameters = Append[parameters, alphaR0 -> alphaSeed]
-    ];
+        Lookup[seed, alphaR0, Lookup[Association[parameterRules], alphaR0, 0]], 0];
 
     variables = Join[
-        MagneticVariables[
-            settings["FourierCutoff"], settings["MagneticRepresentation"]
-        ],
-        {a0, eta0, phi0},
+        MagneticVariables[settings["FourierCutoff"], settings["MagneticRepresentation"]],
+        {a0}, If[rigid, {}, {eta0, phi0}],
         If[useMCA, {alphaR0}, {}]
     ];
-
     prepared = Table[
-        {variable, If[variable === alphaR0, alphaSeed,
-            Lookup[seed, variable, 0]]},
-        {variable, variables}
+        {var, If[var === alphaR0, alphaSeed, Lookup[seed, var, 0]]},
+        {var, variables}
     ];
-
-    <|"InitialValues" -> prepared, "Parameters" -> parameters|>
+    <|
+        "InitialValues" -> prepared,
+        "Parameters" -> effectiveParameters,
+        "FixedGeometryRules" -> If[rigid, {eta0 -> 1, phi0 -> 0}, {}]
+    |>
 ];
 
+(* Complete the solution in a standard format for both lattice types. *)
+GroundStateCompletedSolution[solution_List, rigid_, useMCA_] :=
+    Module[{rules},
+        rules = Select[solution,
+            !MemberQ[If[rigid, {eta0, phi0}, {}], First[#]] &];
+        If[rigid, rules = Join[rules, {eta0 -> 1, phi0 -> 0}]];
+        If[!useMCA,
+            rules = Select[rules, First[#] =!= alphaR0 &]];
+        If[FreeQ[rules, HoldPattern[eta0 -> _]] ||
+           FreeQ[rules, HoldPattern[phi0 -> _]], Return[$Failed]];
+        If[useMCA && FreeQ[rules, HoldPattern[alphaR0 -> _]], Return[$Failed]];
+        rules
+    ];
+
 (* --------------------------------------------------------------- *)
-(* Magnetic equilibrium minimization                              *)
+(* Minimization                                                    *)
 (* --------------------------------------------------------------- *)
 
-(* genericEnergy comes from BuildMagneticEnergy with matching       *)
-(* representation, MCA flag and field direction. kappaCub is        *)
-(* substituted numerically here, not in BuildEnergy.wl.            *)
 FindMagneticEquilibrium[
-    genericEnergy_,
-    parameterRules_List,
-    initialValues_List,
-    OptionsPattern[]
-] := Module[
-    {useMCA, hasCubicTerm, settings, prepared, effectiveParameters,
-     startingValues, specificEnergy, result, dmiType, printSteps},
-
+    genericEnergy_, parameterRules_List, initialValues_List, OptionsPattern[]
+] := Module[{hasCubicTerm, useMCA, settings, prepared, parameters,
+             startingValues, specificEnergy, result, completedSolution,
+             dmiType, printSteps},
     hasCubicTerm = !FreeQ[genericEnergy, kappaCub];
-    useMCA = Replace[OptionValue["CubicAnisotropy"],
-        Automatic -> hasCubicTerm];
-
+    useMCA = Replace[OptionValue["CubicAnisotropy"], Automatic -> hasCubicTerm];
     If[TrueQ[useMCA] =!= hasCubicTerm,
         Message[FindMagneticEquilibrium::energy, hasCubicTerm, useMCA];
-        Return[$Failed]
-    ];
-    If[TrueQ[useMCA] &&
-       FreeQ[parameterRules, HoldPattern[kappaCub -> _]],
-        Message[FindMagneticEquilibrium::kappa];
-        Return[$Failed]
-    ];
+        Return[$Failed]];
+    If[TrueQ[useMCA] && FreeQ[parameterRules, HoldPattern[kappaCub -> _]],
+        Message[FindMagneticEquilibrium::kappa]; Return[$Failed]];
 
     settings = GroundStateModelSettings[
-        parameterRules,
-        OptionValue["FourierCutoff"],
-        OptionValue["MagneticRepresentation"],
-        useMCA,
-        OptionValue["FieldDirection"]
-    ];
+        parameterRules, OptionValue["FourierCutoff"],
+        OptionValue["MagneticRepresentation"], useMCA,
+        OptionValue["FieldDirection"], OptionValue["RigidLattice"]];
     If[settings === $Failed, Return[$Failed]];
-
     prepared = GroundStateInitialValues[initialValues, settings, parameterRules];
     If[prepared === $Failed,
-        Message[FindMagneticEquilibrium::ansatz];
-        Return[$Failed]
-    ];
+        Message[FindMagneticEquilibrium::ansatz]; Return[$Failed]];
 
-    effectiveParameters = prepared["Parameters"];
+    parameters = prepared["Parameters"];
     startingValues = prepared["InitialValues"];
-    specificEnergy = Chop[genericEnergy /. effectiveParameters];
+    specificEnergy = Chop[genericEnergy /. parameters /. prepared["FixedGeometryRules"]];
     printSteps = TrueQ[OptionValue["PrintSteps"]];
-
     result = FindMinimum[
-        specificEnergy,
-        startingValues,
-        Method -> "Newton",
-        AccuracyGoal -> 12,
-        PrecisionGoal -> 10,
-        WorkingPrecision -> 40,
-        MaxIterations -> Infinity,
+        specificEnergy, startingValues,
+        Method -> "Newton", AccuracyGoal -> 12, PrecisionGoal -> 10,
+        WorkingPrecision -> 40, MaxIterations -> Infinity,
         StepMonitor :> If[printSteps,
-            Print[{a0, eta0, phi0, alphaR0} /. effectiveParameters]
-        ]
+            Print[{a0, eta0, phi0, alphaR0} /. prepared["FixedGeometryRules"] /. parameters]]
     ];
+    If[!MatchQ[result, {_, _List}], Return[result]];
 
-    If[TrueQ[OptionValue["Save"]] && MatchQ[result, {_, _List}],
+    completedSolution = GroundStateCompletedSolution[
+        result[[2]], settings["RigidLattice"], useMCA];
+    If[completedSolution === $Failed,
+        Message[SaveMagneticEquilibrium::result]; Return[$Failed]];
+    result = {result[[1]], completedSolution};
+
+    If[TrueQ[OptionValue["Save"]],
         dmiType = OptionValue["DMIType"];
         If[dmiType === Automatic,
             Message[FindMagneticEquilibrium::save],
-            SaveMagneticEquilibrium[
-                result, effectiveParameters, dmiType,
+            SaveMagneticEquilibrium[result, parameters, dmiType,
                 "FourierCutoff" -> settings["FourierCutoff"],
                 "MagneticRepresentation" -> settings["MagneticRepresentation"],
                 "CubicAnisotropy" -> useMCA,
-                "FieldDirection" -> OptionValue["FieldDirection"]
-            ]
+                "FieldDirection" -> OptionValue["FieldDirection"],
+                "RigidLattice" -> settings["RigidLattice"]]
         ]
     ];
     result
 ];
 
 (* --------------------------------------------------------------- *)
-(* Equilibrium file naming                                        *)
+(* Equilibrium file names                                           *)
 (* --------------------------------------------------------------- *)
 
-(* Human-readable model prefix matches MagneticEnergyCacheFile.     *)
-(* A short hash of all fixed physical parameters prevents different *)
-(* lambda or demagnetization settings sharing an equilibrium file.  *)
 GroundStateParameterLabel[parameterRules_List, parameter_, label_String] :=
     Module[{value, printable},
         value = parameter /. parameterRules;
@@ -290,335 +257,286 @@ GroundStateParameterLabel[parameterRules_List, parameter_, label_String] :=
         printable = ToString[InputForm[N[value, 7]]];
         printable = StringReplace[printable, {
             RegularExpression["`[0-9.]*"] -> "",
+            RegularExpression["\\.$"] -> "",
             "*^" -> "e", " " -> "", "-" -> "m", "/" -> "_"
         }];
         "_" <> label <> printable
     ];
 
+(* Equilibrium filenames do not reuse energy-cache naming/canonicalization. *)
 EquilibriumFileName[
-    dmiType_String,
-    parameterRules_List,
-    OptionsPattern[]
-] := Module[
-    {settings, modelFile, modelPrefix, fixed, signature, digest,
-     cutoff, rep, useMCA, direction},
-
+    dmiType_String, parameterRules_List, OptionsPattern[]
+] := Module[{settings, name, missing},
     settings = GroundStateModelSettings[
-        parameterRules,
-        OptionValue["FourierCutoff"],
-        OptionValue["MagneticRepresentation"],
-        OptionValue["CubicAnisotropy"],
-        OptionValue["FieldDirection"]
-    ];
+        parameterRules, OptionValue["FourierCutoff"],
+        OptionValue["MagneticRepresentation"], OptionValue["CubicAnisotropy"],
+        OptionValue["FieldDirection"], OptionValue["RigidLattice"]];
     If[settings === $Failed, Return[$Failed]];
-
-    If[Length[DownValues[MagneticEnergyCacheFile]] == 0,
-        Message[GroundStateModelSettings::builder];
-        Return[$Failed]
-    ];
-
-    cutoff = settings["FourierCutoff"];
-    rep = settings["MagneticRepresentation"];
-    useMCA = settings["CubicAnisotropy"];
-    direction = OptionValue["FieldDirection"];
-    modelFile = MagneticEnergyCacheFile[
-        cutoff, dmiType,
-        "MagneticRepresentation" -> rep,
-        "CubicAnisotropy" -> useMCA,
-        "FieldDirection" -> direction
-    ];
-    If[modelFile === $Failed, Return[$Failed]];
-    modelPrefix = FileBaseName[modelFile];
-
-    fixed = SortBy[parameterRules, ToString[InputForm[First[#]]] &];
-    signature = ToString[InputForm[fixed]];
-    digest = StringTake[IntegerString[Hash[signature, "SHA256"], 16, 64], 10];
-
-    StringJoin[
-        modelPrefix,
+    missing = Select[{b, xi, Nz, lambda},
+        !MemberQ[First /@ parameterRules, #] &];
+    If[missing =!= {},
+        Message[EquilibriumFileName::params, missing]; Return[$Failed]];
+    If[settings["CubicAnisotropy"] &&
+       FreeQ[parameterRules, HoldPattern[kappaCub -> _]],
+        Message[FindMagneticEquilibrium::kappa]; Return[$Failed]];
+    name = StringJoin[
+        dmiType,
+        "_N", ToString[settings["FourierCutoff"]],
         GroundStateParameterLabel[parameterRules, b, "b"],
         GroundStateParameterLabel[parameterRules, xi, "xi"],
         GroundStateParameterLabel[parameterRules, Nz, "Nz"],
-        If[useMCA, GroundStateParameterLabel[parameterRules, kappaCub, "K"], ""],
-        "_id", digest
-    ]
+        GroundStateParameterLabel[parameterRules, lambda, "lambda"],
+        If[settings["CubicAnisotropy"],
+            GroundStateParameterLabel[parameterRules, kappaCub, "Kcub"] <>
+                "_" <> settings["FieldDirectionTag"], ""],
+        "_", ToLowerCase[settings["MagneticRepresentation"]],
+        If[settings["RigidLattice"], "_rigidLattice", ""]
+    ];
+    name
 ];
 
-EquilibriumFilePath[
-    dmiType_String,
-    parameterRules_List,
-    OptionsPattern[]
-] := Module[{name},
-    name = EquilibriumFileName[
-        dmiType, parameterRules,
-        "FourierCutoff" -> OptionValue["FourierCutoff"],
-        "MagneticRepresentation" -> OptionValue["MagneticRepresentation"],
-        "CubicAnisotropy" -> OptionValue["CubicAnisotropy"],
-        "FieldDirection" -> OptionValue["FieldDirection"]
+EquilibriumFilePath[dmiType_String, parameterRules_List, OptionsPattern[]] :=
+    Module[{name},
+        name = EquilibriumFileName[dmiType, parameterRules,
+            "FourierCutoff" -> OptionValue["FourierCutoff"],
+            "MagneticRepresentation" -> OptionValue["MagneticRepresentation"],
+            "CubicAnisotropy" -> OptionValue["CubicAnisotropy"],
+            "FieldDirection" -> OptionValue["FieldDirection"],
+            "RigidLattice" -> OptionValue["RigidLattice"]];
+        If[name === $Failed, Return[$Failed]];
+        FileNameJoin[{$ProjectRoot, "results", "equilibria", name <> ".txt"}]
     ];
-    If[name === $Failed, Return[$Failed]];
-    FileNameJoin[{$ProjectRoot, "results", "equilibria", name <> ".txt"}]
+
+(* Compare full physical parameters (also checks Nx and Ny, not in filename). *)
+GroundStateParametersMatchQ[first_List, second_List] := Module[{a, c},
+    a = Association[Select[first,
+        !MemberQ[{alphaR0, eta0, phi0}, First[#]] &]];
+    c = Association[Select[second,
+        !MemberQ[{alphaR0, eta0, phi0}, First[#]] &]];
+    Sort[Keys[a]] === Sort[Keys[c]] &&
+        AllTrue[Keys[a], TrueQ[Simplify[a[#] == c[#]]] &]
 ];
 
-EquilibriumExistsQ[
-    dmiType_String,
-    parameterRules_List,
-    OptionsPattern[]
-] := Module[{path},
-    path = EquilibriumFilePath[
-        dmiType, parameterRules,
-        "FourierCutoff" -> OptionValue["FourierCutoff"],
-        "MagneticRepresentation" -> OptionValue["MagneticRepresentation"],
-        "CubicAnisotropy" -> OptionValue["CubicAnisotropy"],
-        "FieldDirection" -> OptionValue["FieldDirection"]
+GroundStateMatchesRequestQ[
+    data_Association, dmiType_String, parameters_List, settings_Association
+] :=
+    Lookup[data, "DMIType", Missing[]] === dmiType &&
+    Lookup[data, "FourierCutoff", Missing[]] === settings["FourierCutoff"] &&
+    Lookup[data, "MagneticRepresentation", Missing[]] === settings["MagneticRepresentation"] &&
+    TrueQ[Lookup[data, "CubicAnisotropy", False]] === settings["CubicAnisotropy"] &&
+    TrueQ[Lookup[data, "RigidLattice", False]] === settings["RigidLattice"] &&
+    (!settings["CubicAnisotropy"] ||
+        Lookup[data, "FieldDirectionInput", Missing[]] === settings["FieldDirectionInput"]) &&
+    GroundStateParametersMatchQ[Lookup[data, "Parameters", {}], parameters];
+
+EquilibriumExistsQ[dmiType_String, parameterRules_List, OptionsPattern[]] :=
+    Module[{path, data, settings},
+        settings = GroundStateModelSettings[parameterRules,
+            OptionValue["FourierCutoff"], OptionValue["MagneticRepresentation"],
+            OptionValue["CubicAnisotropy"], OptionValue["FieldDirection"],
+            OptionValue["RigidLattice"]];
+        If[settings === $Failed, Return[False]];
+        path = EquilibriumFilePath[dmiType, parameterRules,
+            "FourierCutoff" -> settings["FourierCutoff"],
+            "MagneticRepresentation" -> settings["MagneticRepresentation"],
+            "CubicAnisotropy" -> settings["CubicAnisotropy"],
+            "FieldDirection" -> OptionValue["FieldDirection"],
+            "RigidLattice" -> settings["RigidLattice"]];
+        If[path === $Failed || !FileExistsQ[path], Return[False]];
+        data = Quiet[Check[Get[path], $Failed]];
+        AssociationQ[data] && GroundStateMatchesRequestQ[data, dmiType, parameterRules, settings]
     ];
-    path =!= $Failed && FileExistsQ[path]
-];
 
 (* --------------------------------------------------------------- *)
-(* Save / load equilibria                                          *)
+(* Save / load                                                      *)
 (* --------------------------------------------------------------- *)
 
 SaveMagneticEquilibrium[
-    result_,
-    parameterRules_List,
-    dmiType_String,
-    OptionsPattern[]
-] := Module[{settings, path, data},
+    result_, parameterRules_List, dmiType_String, OptionsPattern[]
+] := Module[{settings, solution, parameters, path, data, existing},
     If[!MatchQ[result, {_, _List}],
-        Message[SaveMagneticEquilibrium::result];
-        Return[$Failed]
-    ];
-
-    settings = GroundStateModelSettings[
-        parameterRules,
-        OptionValue["FourierCutoff"],
-        OptionValue["MagneticRepresentation"],
-        OptionValue["CubicAnisotropy"],
-        OptionValue["FieldDirection"]
-    ];
+        Message[SaveMagneticEquilibrium::result]; Return[$Failed]];
+    settings = GroundStateModelSettings[parameterRules,
+        OptionValue["FourierCutoff"], OptionValue["MagneticRepresentation"],
+        OptionValue["CubicAnisotropy"], OptionValue["FieldDirection"],
+        OptionValue["RigidLattice"]];
     If[settings === $Failed, Return[$Failed]];
+    parameters = Select[parameterRules,
+        !MemberQ[{eta0, phi0, alphaR0}, First[#]] &];
+    If[settings["CubicAnisotropy"],
+        If[FreeQ[parameters, HoldPattern[kappaCub -> _]],
+            Message[FindMagneticEquilibrium::kappa]; Return[$Failed]],
+        AppendTo[parameters, alphaR0 -> 0]
+    ];
+    solution = GroundStateCompletedSolution[
+        result[[2]], settings["RigidLattice"], settings["CubicAnisotropy"]];
+    If[solution === $Failed,
+        Message[SaveMagneticEquilibrium::result]; Return[$Failed]];
 
-    effectiveParameters = If[settings["CubicAnisotropy"],
-        DeleteCases[parameterRules, HoldPattern[alphaR0 -> _]],
-        parameterRules
-    ];
-    If[settings["CubicAnisotropy"] &&
-       FreeQ[effectiveParameters, HoldPattern[kappaCub -> _]],
-        Message[FindMagneticEquilibrium::kappa];
-        Return[$Failed]
-    ];
-    If[!settings["CubicAnisotropy"] &&
-       FreeQ[parameterRules, HoldPattern[alphaR0 -> _]],
-        effectiveParameters = Append[effectiveParameters, alphaR0 -> 0]
-    ];
-    If[settings["CubicAnisotropy"] &&
-       FreeQ[result[[2]], HoldPattern[alphaR0 -> _]],
-        Message[SaveMagneticEquilibrium::rotation];
-        Return[$Failed]
-    ];
-
-    path = EquilibriumFilePath[
-        dmiType, effectiveParameters,
+    path = EquilibriumFilePath[dmiType, parameters,
         "FourierCutoff" -> settings["FourierCutoff"],
         "MagneticRepresentation" -> settings["MagneticRepresentation"],
         "CubicAnisotropy" -> settings["CubicAnisotropy"],
-        "FieldDirection" -> OptionValue["FieldDirection"]
-    ];
+        "FieldDirection" -> OptionValue["FieldDirection"],
+        "RigidLattice" -> settings["RigidLattice"]];
     If[path === $Failed, Return[$Failed]];
-    If[!DirectoryQ[DirectoryName[path]],
-        CreateDirectory[DirectoryName[path],
-            CreateIntermediateDirectories -> True]
+    If[FileExistsQ[path],
+        existing = Quiet[Check[Get[path], $Failed]];
+        If[!AssociationQ[existing] ||
+           !GroundStateMatchesRequestQ[existing, dmiType, parameters, settings],
+            Message[SaveMagneticEquilibrium::collision, path]; Return[$Failed]]
     ];
+    If[!DirectoryQ[DirectoryName[path]],
+        CreateDirectory[DirectoryName[path], CreateIntermediateDirectories -> True]];
 
     data = <|
         "Energy" -> result[[1]],
-        "Solution" -> result[[2]],
-        "Parameters" -> effectiveParameters,
+        "Solution" -> solution,
+        "Parameters" -> parameters,
         "DMIType" -> dmiType,
         "FourierCutoff" -> settings["FourierCutoff"],
         "MagneticRepresentation" -> settings["MagneticRepresentation"],
         "CubicAnisotropy" -> settings["CubicAnisotropy"],
-        "FieldDirectionCrystal" -> settings["FieldDirectionCrystal"]
+        "RigidLattice" -> settings["RigidLattice"],
+        "FieldDirectionInput" -> settings["FieldDirectionInput"],
+        "FieldDirectionCrystal" -> settings["FieldDirectionCrystal"],
+        "FieldDirectionTag" -> settings["FieldDirectionTag"]
     |>;
     Put[data, path];
     Print["Equilibrium configuration saved to: ", path];
     path
 ];
 
-(* Loading by filename remains compatible with older .txt files.   *)
+(* Direct filenames remain usable for older equilibria. *)
 LoadMagneticEquilibrium[fileName_String] := Module[{path},
     path = If[FileExistsQ[fileName], fileName,
-        FileNameJoin[{$ProjectRoot, "results", "equilibria", fileName}]
-    ];
+        FileNameJoin[{$ProjectRoot, "results", "equilibria", fileName}]];
     If[!FileExistsQ[path],
-        Print["Equilibrium file not found: ", path];
-        Return[$Failed]
-    ];
+        Print["Equilibrium file not found: ", path]; Return[$Failed]];
     Get[path]
 ];
 
 LoadMagneticEquilibrium[
-    dmiType_String,
-    parameterRules_List,
-    OptionsPattern[]
-] := Module[{path},
-    path = EquilibriumFilePath[
-        dmiType, parameterRules,
-        "FourierCutoff" -> OptionValue["FourierCutoff"],
-        "MagneticRepresentation" -> OptionValue["MagneticRepresentation"],
-        "CubicAnisotropy" -> OptionValue["CubicAnisotropy"],
-        "FieldDirection" -> OptionValue["FieldDirection"]
-    ];
+    dmiType_String, parameterRules_List, OptionsPattern[]
+] := Module[{settings, path, data},
+    settings = GroundStateModelSettings[parameterRules,
+        OptionValue["FourierCutoff"], OptionValue["MagneticRepresentation"],
+        OptionValue["CubicAnisotropy"], OptionValue["FieldDirection"],
+        OptionValue["RigidLattice"]];
+    If[settings === $Failed, Return[$Failed]];
+    path = EquilibriumFilePath[dmiType, parameterRules,
+        "FourierCutoff" -> settings["FourierCutoff"],
+        "MagneticRepresentation" -> settings["MagneticRepresentation"],
+        "CubicAnisotropy" -> settings["CubicAnisotropy"],
+        "FieldDirection" -> OptionValue["FieldDirection"],
+        "RigidLattice" -> settings["RigidLattice"]];
     If[path === $Failed, Return[$Failed]];
-    LoadMagneticEquilibrium[path]
+    data = LoadMagneticEquilibrium[path];
+    If[!AssociationQ[data] ||
+       !GroundStateMatchesRequestQ[data, dmiType, parameterRules, settings],
+        Message[LoadMagneticEquilibrium::metadata, path]; Return[$Failed]];
+    data
 ];
 
 EquilibriumRules[equilibrium_Association] :=
     Join[equilibrium["Solution"], equilibrium["Parameters"]];
 
 (* --------------------------------------------------------------- *)
-(* Restart / continuation ansatz                                   *)
+(* Restart / continuation                                           *)
 (* --------------------------------------------------------------- *)
 
-(* An existing SixFold equilibrium can initialize a General one:   *)
-(* shared Fourier coefficients are reused; extra ones start at 0.  *)
-(* alphaR0 becomes an optimization variable if cubic MCA is on.     *)
-EquilibriumAnsatz[
-    equilibrium_Association,
-    OptionsPattern[]
-] := Module[{cutoff, rep, oldRep, oldCutoff, useMCA, settings,
-             seedRules, prepared},
-
-    oldCutoff = equilibrium["FourierCutoff"];
-    oldRep = equilibrium["MagneticRepresentation"];
-    cutoff = Replace[OptionValue["FourierCutoff"],
-        Automatic :> If[ValueQ[$FourierCutoff], $FourierCutoff, oldCutoff]];
-    rep = Replace[OptionValue["MagneticRepresentation"],
-        Automatic :> If[ValueQ[$MagneticRepresentation], $MagneticRepresentation, oldRep]];
-
-    If[oldCutoff =!= cutoff,
-        Message[EquilibriumAnsatz::cutoff, oldCutoff, cutoff];
-        Return[$Failed]
-    ];
-    If[oldRep =!= rep,
-        If[!TrueQ[OptionValue["AllowRepresentationChange"]],
-            Message[EquilibriumAnsatz::rep, oldRep, rep];
-            Return[$Failed]
+EquilibriumAnsatz[equilibrium_Association, OptionsPattern[]] :=
+    Module[{oldCutoff, oldRep, cutoff, rep, useMCA, rigid, settings, prepared},
+        oldCutoff = equilibrium["FourierCutoff"];
+        oldRep = equilibrium["MagneticRepresentation"];
+        (* A saved equilibrium is self-describing: do not use unrelated globals. *)
+        cutoff = Replace[OptionValue["FourierCutoff"], Automatic -> oldCutoff];
+        rep = Replace[OptionValue["MagneticRepresentation"], Automatic -> oldRep];
+        If[oldCutoff =!= cutoff,
+            Message[EquilibriumAnsatz::cutoff, oldCutoff, cutoff]; Return[$Failed]];
+        If[oldRep =!= rep,
+            If[!TrueQ[OptionValue["AllowRepresentationChange"]],
+                Message[EquilibriumAnsatz::rep, oldRep, rep]; Return[$Failed]];
+            If[!(oldRep === "SixFold" && rep === "General"),
+                Message[EquilibriumAnsatz::conversion, oldRep, rep]; Return[$Failed]]
         ];
-        If[!(oldRep === "SixFold" && rep === "General"),
-            Message[EquilibriumAnsatz::conversion, oldRep, rep];
-            Return[$Failed]
-        ]
+        useMCA = Replace[OptionValue["CubicAnisotropy"],
+            Automatic :> Lookup[equilibrium, "CubicAnisotropy", False]];
+        rigid = Replace[OptionValue["RigidLattice"],
+            Automatic :> Lookup[equilibrium, "RigidLattice", False]];
+        settings = GroundStateModelSettings[
+            equilibrium["Parameters"], cutoff, rep, useMCA,
+            OptionValue["FieldDirection"], rigid];
+        If[settings === $Failed, Return[$Failed]];
+        prepared = GroundStateInitialValues[
+            List @@@ equilibrium["Solution"], settings, equilibrium["Parameters"]];
+        If[prepared === $Failed, Return[$Failed]];
+        prepared["InitialValues"]
     ];
-
-    useMCA = Replace[OptionValue["CubicAnisotropy"],
-        Automatic :> Lookup[equilibrium, "CubicAnisotropy", False]];
-    settings = GroundStateModelSettings[
-        equilibrium["Parameters"], cutoff, rep, useMCA,
-        OptionValue["FieldDirection"]
-    ];
-    If[settings === $Failed, Return[$Failed]];
-
-    seedRules = List @@@ equilibrium["Solution"];
-    prepared = GroundStateInitialValues[
-        seedRules, settings, equilibrium["Parameters"]
-    ];
-    If[prepared === $Failed, Return[$Failed]];
-    prepared["InitialValues"]
-];
-
-(* --------------------------------------------------------------- *)
-(* Generic parameter sweep / continuation                          *)
-(* --------------------------------------------------------------- *)
 
 ParameterSweep[
-    genericEnergy_,
-    dmiType_String,
-    baseParameterRules_List,
-    sweepParameter_Symbol,
-    parameterValues_List,
-    initialValues_List,
-    save_: True,
-    OptionsPattern[]
-] := Module[
-    {settings, useMCA, ansatz, currentParameters, currentPrepared,
-     effectiveParameters, path, equilibrium, result, source, rows = {}},
-
+    genericEnergy_, dmiType_String, baseParameterRules_List,
+    sweepParameter_Symbol, parameterValues_List, initialValues_List,
+    save_: True, OptionsPattern[]
+] := Module[{useMCA, settings, ansatz, currentParameters, prepared,
+             parameters, path, equilibrium, result, source, rows = {}},
     useMCA = Replace[OptionValue["CubicAnisotropy"],
         Automatic -> !FreeQ[genericEnergy, kappaCub]];
-    settings = GroundStateModelSettings[
-        baseParameterRules,
-        OptionValue["FourierCutoff"],
-        OptionValue["MagneticRepresentation"],
-        useMCA,
-        OptionValue["FieldDirection"]
-    ];
+    settings = GroundStateModelSettings[baseParameterRules,
+        OptionValue["FourierCutoff"], OptionValue["MagneticRepresentation"],
+        useMCA, OptionValue["FieldDirection"], OptionValue["RigidLattice"]];
     If[settings === $Failed, Return[$Failed]];
-
     ansatz = initialValues;
     Do[
         currentParameters = Join[
             DeleteCases[baseParameterRules, HoldPattern[Rule[sweepParameter, _]]],
-            {sweepParameter -> value}
-        ];
-        currentPrepared = GroundStateInitialValues[
-            ansatz, settings, currentParameters
-        ];
-        If[currentPrepared === $Failed,
-            Message[ParameterSweep::ansatz, sweepParameter, value];
-            Return[$Failed]
-        ];
-        effectiveParameters = currentPrepared["Parameters"];
-
-        path = EquilibriumFilePath[
-            dmiType, effectiveParameters,
+            {sweepParameter -> value}];
+        prepared = GroundStateInitialValues[ansatz, settings, currentParameters];
+        If[prepared === $Failed,
+            Message[ParameterSweep::ansatz, sweepParameter, value]; Return[$Failed]];
+        parameters = prepared["Parameters"];
+        path = EquilibriumFilePath[dmiType, parameters,
             "FourierCutoff" -> settings["FourierCutoff"],
             "MagneticRepresentation" -> settings["MagneticRepresentation"],
             "CubicAnisotropy" -> useMCA,
-            "FieldDirection" -> OptionValue["FieldDirection"]
-        ];
+            "FieldDirection" -> OptionValue["FieldDirection"],
+            "RigidLattice" -> settings["RigidLattice"]];
         If[path === $Failed, Return[$Failed]];
-
         If[FileExistsQ[path],
-            Print["Loading existing equilibrium: ", path];
-            equilibrium = LoadMagneticEquilibrium[path];
+            equilibrium = LoadMagneticEquilibrium[dmiType, parameters,
+                "FourierCutoff" -> settings["FourierCutoff"],
+                "MagneticRepresentation" -> settings["MagneticRepresentation"],
+                "CubicAnisotropy" -> useMCA,
+                "FieldDirection" -> OptionValue["FieldDirection"],
+                "RigidLattice" -> settings["RigidLattice"]];
             If[equilibrium === $Failed, Return[$Failed]];
             result = {equilibrium["Energy"], equilibrium["Solution"]};
             source = "Loaded";
             ,
-            Print[sweepParameter, " = ", value, ": minimizing..."];
             result = FindMagneticEquilibrium[
-                genericEnergy, effectiveParameters,
-                currentPrepared["InitialValues"],
+                genericEnergy, parameters, prepared["InitialValues"],
                 "FourierCutoff" -> settings["FourierCutoff"],
                 "MagneticRepresentation" -> settings["MagneticRepresentation"],
                 "CubicAnisotropy" -> useMCA,
-                "FieldDirection" -> OptionValue["FieldDirection"]
-            ];
+                "FieldDirection" -> OptionValue["FieldDirection"],
+                "RigidLattice" -> settings["RigidLattice"]];
             If[!MatchQ[result, {_, _List}], Return[$Failed]];
             source = "Calculated";
             If[TrueQ[save],
-                SaveMagneticEquilibrium[
-                    result, effectiveParameters, dmiType,
+                If[SaveMagneticEquilibrium[result, parameters, dmiType,
                     "FourierCutoff" -> settings["FourierCutoff"],
                     "MagneticRepresentation" -> settings["MagneticRepresentation"],
                     "CubicAnisotropy" -> useMCA,
-                    "FieldDirection" -> OptionValue["FieldDirection"]
-                ]
-            ]
+                    "FieldDirection" -> OptionValue["FieldDirection"],
+                    "RigidLattice" -> settings["RigidLattice"]] === $Failed,
+                    Return[$Failed]]]
         ];
-
         ansatz = List @@@ result[[2]];
         AppendTo[rows, <|
-            "SweepParameter" -> sweepParameter,
-            "ParameterValue" -> value,
-            "Energy" -> result[[1]],
-            "Solution" -> result[[2]],
-            "Parameters" -> effectiveParameters,
-            "Source" -> source
-        |>];,
-        {value, parameterValues}
+            "SweepParameter" -> sweepParameter, "ParameterValue" -> value,
+            "Energy" -> result[[1]], "Solution" -> result[[2]],
+            "Parameters" -> parameters, "Source" -> source|>];
+        , {value, parameterValues}
     ];
     rows
 ];
@@ -629,17 +547,17 @@ ParameterSweep[
 
 GroundStateHelp[] := Column[{
     Style["GroundState.wl", Bold, 16],
-    "Magnetic equilibrium minimization, saving, loading and continuation; supports cubic MCA and either Fourier representation.",
+    "Equilibrium minimization, storage and sweeps with optional MCA and rigid lattice.",
     Grid[{
         {"Function", "Description"},
-        {"FindMagneticEquilibrium", "Minimize a magnetic energy; optimize alphaR0 when MCA is active."},
-        {"GroundStateInitialValues", "Complete the Fourier ansatz and handle the alphaR0 variable."},
-        {"EquilibriumFileName / EquilibriumFilePath", "Distinct names for model, MCA orientation and fixed parameters."},
-        {"SaveMagneticEquilibrium / LoadMagneticEquilibrium", "Store and recover equilibria with model metadata."},
-        {"EquilibriumRules / EquilibriumAnsatz", "Read solutions or prepare a compatible restart ansatz."},
-        {"ParameterSweep", "Continue an equilibrium branch while varying a physical parameter."}
+        {"FindMagneticEquilibrium", "Minimize the energy; optionally fix eta0=1, phi0=0 via RigidLattice."},
+        {"GroundStateInitialValues", "Generate a complete Fourier ansatz, with alphaR0 fixed for isotropic models."},
+        {"EquilibriumFileName / EquilibriumFilePath", "Descriptive names using raw H indices, lambda, representation and rigidLattice."},
+        {"SaveMagneticEquilibrium / LoadMagneticEquilibrium", "Preserve geometry in Solution and validate model metadata."},
+        {"EquilibriumRules / EquilibriumAnsatz", "Read equilibria or create restart ansatz, including SixFold-to-General expansion."},
+        {"ParameterSweep", "Continue an equilibrium branch through parameter values."}
     }, Frame -> All, Alignment -> Left],
-    "Model options: FourierCutoff, MagneticRepresentation, CubicAnisotropy, FieldDirection."
+    "Options: FourierCutoff, MagneticRepresentation, CubicAnisotropy, FieldDirection, RigidLattice."
 }];
 
 Print[GroundStateHelp[]];
