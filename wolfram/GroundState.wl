@@ -8,7 +8,9 @@
 ClearAll[
     GroundStateFieldDirectionTag, GroundStateModelSettings,
     GroundStateInitialValues, GroundStateCompletedSolution,
-    GroundStateParameterLabel, GroundStateParametersMatchQ,
+    GroundStateParameterLabel, GroundStateNzString,
+    GroundStateParametersMatchQ, GroundStateValuesEqualQ,
+    GroundStateLocateSavedEquilibrium,
     GroundStateMatchesRequestQ, FindMagneticEquilibrium,
     EquilibriumFileName, EquilibriumFilePath, EquilibriumExistsQ,
     SaveMagneticEquilibrium, LoadMagneticEquilibrium,
@@ -250,11 +252,36 @@ FindMagneticEquilibrium[
 (* Equilibrium file names                                           *)
 (* --------------------------------------------------------------- *)
 
+(* Three DECIMAL places at most: 1/3 -> 0.333, 0.4 -> 0.4. *)
+(* Formatting through integer arithmetic avoids precision markers and *)
+(* machine-precision tails in the resulting filename.             *)
+GroundStateNzString[value_?NumericQ] := Module[{scaled, magnitude, fraction, sign},
+    scaled = Round[1000 N[value, 16]];
+    sign = If[scaled < 0, "-", ""];
+    magnitude = Abs[scaled];
+    fraction = StringReplace[
+        IntegerString[Mod[magnitude, 1000], 10, 3],
+        RegularExpression["0+$"] -> ""
+    ];
+    sign <> ToString[Quotient[magnitude, 1000]] <>
+        If[fraction === "", "", "." <> fraction]
+];
+
+(* Preserve meaningful decimals for non-integral lambda.              *)
+(* A numerically integral value, e.g. 500. or 500`30, becomes "500". *)
 GroundStateParameterLabel[parameterRules_List, parameter_, label_String] :=
     Module[{value, printable},
         value = parameter /. parameterRules;
         If[value === parameter, Return[""]];
-        printable = ToString[InputForm[N[value, 7]]];
+        printable = Which[
+            parameter === Nz && NumericQ[value],
+                GroundStateNzString[value],
+            parameter === lambda && NumericQ[value] &&
+                TrueQ[Abs[N[value - Round[value], 16]] < 10^-10],
+                ToString[InputForm[Round[value]]],
+            True,
+                ToString[InputForm[N[value, 7]]]
+        ];
         printable = StringReplace[printable, {
             RegularExpression["`[0-9.]*"] -> "",
             RegularExpression["\\.$"] -> "",
@@ -308,13 +335,24 @@ EquilibriumFilePath[dmiType_String, parameterRules_List, OptionsPattern[]] :=
     ];
 
 (* Compare full physical parameters (also checks Nx and Ny, not in filename). *)
+(* Compare physical values rather than their printed representations. *)
+(* This permits restarting a sweep with numerically equivalent input. *)
+GroundStateValuesEqualQ[a_, c_] :=
+    If[NumericQ[a] && NumericQ[c],
+        TrueQ[
+            Abs[N[a - c, 16]] <=
+                10^-10 Max[1, Abs[N[a, 16]], Abs[N[c, 16]]]
+        ],
+        TrueQ[Simplify[a == c]]
+    ];
+
 GroundStateParametersMatchQ[first_List, second_List] := Module[{a, c},
     a = Association[Select[first,
         !MemberQ[{alphaR0, eta0, phi0}, First[#]] &]];
     c = Association[Select[second,
         !MemberQ[{alphaR0, eta0, phi0}, First[#]] &]];
     Sort[Keys[a]] === Sort[Keys[c]] &&
-        AllTrue[Keys[a], TrueQ[Simplify[a[#] == c[#]]] &]
+        AllTrue[Keys[a], GroundStateValuesEqualQ[a[#], c[#]] &]
 ];
 
 GroundStateMatchesRequestQ[
@@ -329,6 +367,39 @@ GroundStateMatchesRequestQ[
         Lookup[data, "FieldDirectionInput", Missing[]] === settings["FieldDirectionInput"]) &&
     GroundStateParametersMatchQ[Lookup[data, "Parameters", {}], parameters];
 
+(* Locate a saved equilibrium under the new filename or an older name. *)
+(* Legacy filenames are accepted ONLY when their complete model metadata *)
+(* and physical parameters match the requested configuration.          *)
+GroundStateLocateSavedEquilibrium[
+    dmiType_String, parameterRules_List, settings_Association
+] := Module[{path, directory, pattern, candidates, match},
+    path = EquilibriumFilePath[dmiType, parameterRules,
+        "FourierCutoff" -> settings["FourierCutoff"],
+        "MagneticRepresentation" -> settings["MagneticRepresentation"],
+        "CubicAnisotropy" -> settings["CubicAnisotropy"],
+        "FieldDirection" -> settings["FieldDirectionInput"],
+        "RigidLattice" -> settings["RigidLattice"]];
+    If[path === $Failed, Return[$Failed]];
+    If[FileExistsQ[path], Return[path]];
+
+    directory = DirectoryName[path];
+    If[!DirectoryQ[directory], Return[$Failed]];
+    pattern = dmiType <> "_N" <> ToString[settings["FourierCutoff"]] <>
+        "_*_" <> ToLowerCase[settings["MagneticRepresentation"]] <>
+        If[settings["RigidLattice"], "_rigidLattice", ""] <> ".txt";
+    candidates = FileNames[pattern, directory];
+    match = SelectFirst[candidates,
+        Function[file,
+            Module[{data = Quiet[Check[Get[file], $Failed]]},
+                AssociationQ[data] &&
+                    GroundStateMatchesRequestQ[data, dmiType, parameterRules, settings]
+            ]
+        ],
+        $Failed
+    ];
+    match
+];
+
 EquilibriumExistsQ[dmiType_String, parameterRules_List, OptionsPattern[]] :=
     Module[{path, data, settings},
         settings = GroundStateModelSettings[parameterRules,
@@ -336,15 +407,11 @@ EquilibriumExistsQ[dmiType_String, parameterRules_List, OptionsPattern[]] :=
             OptionValue["CubicAnisotropy"], OptionValue["FieldDirection"],
             OptionValue["RigidLattice"]];
         If[settings === $Failed, Return[False]];
-        path = EquilibriumFilePath[dmiType, parameterRules,
-            "FourierCutoff" -> settings["FourierCutoff"],
-            "MagneticRepresentation" -> settings["MagneticRepresentation"],
-            "CubicAnisotropy" -> settings["CubicAnisotropy"],
-            "FieldDirection" -> OptionValue["FieldDirection"],
-            "RigidLattice" -> settings["RigidLattice"]];
-        If[path === $Failed || !FileExistsQ[path], Return[False]];
+        path = GroundStateLocateSavedEquilibrium[dmiType, parameterRules, settings];
+        If[path === $Failed, Return[False]];
         data = Quiet[Check[Get[path], $Failed]];
-        AssociationQ[data] && GroundStateMatchesRequestQ[data, dmiType, parameterRules, settings]
+        AssociationQ[data] &&
+            GroundStateMatchesRequestQ[data, dmiType, parameterRules, settings]
     ];
 
 (* --------------------------------------------------------------- *)
@@ -424,13 +491,12 @@ LoadMagneticEquilibrium[
         OptionValue["CubicAnisotropy"], OptionValue["FieldDirection"],
         OptionValue["RigidLattice"]];
     If[settings === $Failed, Return[$Failed]];
-    path = EquilibriumFilePath[dmiType, parameterRules,
-        "FourierCutoff" -> settings["FourierCutoff"],
-        "MagneticRepresentation" -> settings["MagneticRepresentation"],
-        "CubicAnisotropy" -> settings["CubicAnisotropy"],
-        "FieldDirection" -> OptionValue["FieldDirection"],
-        "RigidLattice" -> settings["RigidLattice"]];
-    If[path === $Failed, Return[$Failed]];
+    path = GroundStateLocateSavedEquilibrium[dmiType, parameterRules, settings];
+    If[path === $Failed,
+        Print["No matching saved equilibrium found for ", dmiType,
+            " and parameters ", parameterRules];
+        Return[$Failed]
+    ];
     data = LoadMagneticEquilibrium[path];
     If[!AssociationQ[data] ||
        !GroundStateMatchesRequestQ[data, dmiType, parameterRules, settings],
@@ -495,21 +561,15 @@ ParameterSweep[
         If[prepared === $Failed,
             Message[ParameterSweep::ansatz, sweepParameter, value]; Return[$Failed]];
         parameters = prepared["Parameters"];
-        path = EquilibriumFilePath[dmiType, parameters,
-            "FourierCutoff" -> settings["FourierCutoff"],
-            "MagneticRepresentation" -> settings["MagneticRepresentation"],
-            "CubicAnisotropy" -> useMCA,
-            "FieldDirection" -> OptionValue["FieldDirection"],
-            "RigidLattice" -> settings["RigidLattice"]];
-        If[path === $Failed, Return[$Failed]];
-        If[FileExistsQ[path],
-            equilibrium = LoadMagneticEquilibrium[dmiType, parameters,
-                "FourierCutoff" -> settings["FourierCutoff"],
-                "MagneticRepresentation" -> settings["MagneticRepresentation"],
-                "CubicAnisotropy" -> useMCA,
-                "FieldDirection" -> OptionValue["FieldDirection"],
-                "RigidLattice" -> settings["RigidLattice"]];
-            If[equilibrium === $Failed, Return[$Failed]];
+        path = GroundStateLocateSavedEquilibrium[dmiType, parameters, settings];
+        If[path =!= $Failed,
+            equilibrium = Quiet[Check[Get[path], $Failed]];
+            If[!AssociationQ[equilibrium] ||
+                !GroundStateMatchesRequestQ[equilibrium, dmiType, parameters, settings],
+                Message[LoadMagneticEquilibrium::metadata, path];
+                Return[$Failed]
+            ];
+            Print["Loading saved equilibrium: ", FileNameTake[path]];
             result = {equilibrium["Energy"], equilibrium["Solution"]};
             source = "Loaded";
             ,
@@ -552,10 +612,10 @@ GroundStateHelp[] := Column[{
         {"Function", "Description"},
         {"FindMagneticEquilibrium", "Minimize the energy; optionally fix eta0=1, phi0=0 via RigidLattice."},
         {"GroundStateInitialValues", "Generate a complete Fourier ansatz, with alphaR0 fixed for isotropic models."},
-        {"EquilibriumFileName / EquilibriumFilePath", "Descriptive names using raw H indices, lambda, representation and rigidLattice."},
+        {"EquilibriumFileName / EquilibriumFilePath", "Descriptive names: Nz to 3 decimals, integer-valued lambda without decimal, raw H indices, representation and rigidLattice."},
         {"SaveMagneticEquilibrium / LoadMagneticEquilibrium", "Preserve geometry in Solution and validate model metadata."},
         {"EquilibriumRules / EquilibriumAnsatz", "Read equilibria or create restart ansatz, including SixFold-to-General expansion."},
-        {"ParameterSweep", "Continue an equilibrium branch through parameter values."}
+        {"ParameterSweep", "Continue an equilibrium branch; recognize older save filenames by validating metadata."}
     }, Frame -> All, Alignment -> Left],
     "Options: FourierCutoff, MagneticRepresentation, CubicAnisotropy, FieldDirection, RigidLattice."
 }];
