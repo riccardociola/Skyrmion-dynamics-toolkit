@@ -1,0 +1,35 @@
+{
+  "method": "independent scrambled Sobol sequences",
+  "dimensions": [
+    "b",
+    "xi"
+  ],
+  "bounds": {
+    "b": [
+      0.2,
+      0.9
+    ],
+    "xi": [
+      0.4,
+      1.1
+    ]
+  },
+  "base_seed": 42,
+  "splits": {
+    "train": {
+      "count": 64,
+      "scramble_seed": 42,
+      "file": "train_64.csv"
+    },
+    "validation": {
+      "count": 16,
+      "scramble_seed": 43,
+      "file": "validation_16.csv"
+    },
+    "test": {
+      "count": 32,
+      "scramble_seed": 44,
+      "file": "test_32.csv"
+    }
+  }
+}
