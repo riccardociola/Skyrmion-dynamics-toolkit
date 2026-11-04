@@ -1,0 +1,1 @@
+2026-10-23 17:33:54 | FINISHED: C:\Users\ricca\Desktop\Git_project\skyrmion-dynamics-toolkit\results\modes\Bloch_N4_b0.45_xi0.88_Nz0.333333_gamma.json
