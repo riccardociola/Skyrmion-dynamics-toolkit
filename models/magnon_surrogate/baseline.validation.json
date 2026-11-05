@@ -1,0 +1,11 @@
+{
+  "n_configurations": 16,
+  "n_true_modes": 143,
+  "n_predicted_modes": 142,
+  "n_matched_modes": 142,
+  "mae_frequency_matched_modes": 0.00019817811392478397,
+  "max_frequency_error_matched_modes": 0.007206474891372494,
+  "mode_count_precision": 1.0,
+  "mode_count_recall": 0.993006993006993,
+  "exact_sector_counts_fraction": 0.9375
+}
